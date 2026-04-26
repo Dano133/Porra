@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Configuración: lectura pública (solo flags), escritura admin
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Torneos: lectura pública, escritura admin
+    match /tournaments/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Participantes: solo escritura desde Cloud Functions (registro) o admin.
+    // Lectura solo admin (no exponer emails).
+    match /participants/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Predicciones: solo admin (los participantes envían vía Cloud Function)
+    match /predictions/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Partidos: lectura pública (calendario y resultados), escritura admin
+    match /matches/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Scores: lectura pública (alimenta ranking), escritura solo Functions/admin
+    match /scores/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Snapshots: lectura pública, escritura admin/Functions
+    match /rankingSnapshots/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Logs de email: solo admin
+    match /mailLogs/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Admins: solo admin
+    match /admins/{uid} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}
