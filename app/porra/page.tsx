@@ -3,7 +3,10 @@
 import { useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { WORLD_CUP_2026_SOURCE_OF_TRUTH, type GroupKey } from '@/lib/world-cup/source-of-truth';
+import {
+  WORLD_CUP_2026_SOURCE_OF_TRUTH,
+  type GroupKey,
+} from '@/lib/world-cup/source-of-truth';
 import {
   calculateAllGroupStandings,
   type GroupPredictionsMap,
@@ -11,8 +14,36 @@ import {
 import { resolveRoundOf32 } from '@/lib/world-cup/bracket-resolver';
 
 const GROUP_KEYS = Object.keys(
-  WORLD_CUP_2026_SOURCE_OF_TRUTH.groups
+  WORLD_CUP_2026_SOURCE_OF_TRUTH.groups,
 ) as GroupKey[];
+
+const TEAM_FLAGS: Record<string, string> = {
+  México: '🇲🇽', Sudáfrica: '🇿🇦', 'Corea Republic': '🇰🇷', Chequia: '🇨🇿', Canadá: '🇨🇦',
+  'Bosnia y Herzegovina': '🇧🇦', Qatar: '🇶🇦', Suiza: '🇨🇭', Brasil: '🇧🇷', Marruecos: '🇲🇦', Haití: '🇭🇹', Escocia: '🏴',
+  USA: '🇺🇸', Paraguay: '🇵🇾', Australia: '🇦🇺', Turquía: '🇹🇷', Alemania: '🇩🇪', Curazao: '🇨🇼', 'Costa de Marfil': '🇨🇮', Ecuador: '🇪🇨',
+  'Países Bajos': '🇳🇱', Japón: '🇯🇵', Suecia: '🇸🇪', Túnez: '🇹🇳', Bélgica: '🇧🇪', Egipto: '🇪🇬', Irán: '🇮🇷', 'Nueva Zelanda': '🇳🇿',
+  España: '🇪🇸', 'Cabo Verde': '🇨🇻', 'Arabia Saudí': '🇸🇦', Uruguay: '🇺🇾', Francia: '🇫🇷', Senegal: '🇸🇳', Irak: '🇮🇶', Noruega: '🇳🇴',
+  Argentina: '🇦🇷', Argelia: '🇩🇿', Austria: '🇦🇹', Jordania: '🇯🇴', Portugal: '🇵🇹', 'Congo DR': '🇨🇩', Uzbekistán: '🇺🇿', Colombia: '🇨🇴',
+  Inglaterra: '🏴', Croacia: '🇭🇷', Ghana: '🇬🇭', Panamá: '🇵🇦',
+};
+
+function Flag({ team }: { team?: string | null }) {
+  const icon = (team && TEAM_FLAGS[team]) || '🏳️';
+  return (
+    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-wc-border bg-wc-background text-sm">
+      {icon}
+    </span>
+  );
+}
+
+function TeamLabel({ team }: { team?: string | null }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Flag team={team} />
+      <span>{team ?? 'Pendiente'}</span>
+    </span>
+  );
+}
 
 function isGroupStageComplete(predictions: GroupPredictionsMap) {
   return WORLD_CUP_2026_SOURCE_OF_TRUTH.groupStageMatches.every((match) => {
@@ -23,32 +54,20 @@ function isGroupStageComplete(predictions: GroupPredictionsMap) {
 
 export default function PorraPage() {
   const [email, setEmail] = useState('');
-  const [groupPredictions, setGroupPredictions] = useState<GroupPredictionsMap>(
-    {}
-  );
+  const [groupPredictions, setGroupPredictions] = useState<GroupPredictionsMap>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   const closed = false;
 
-  const standings = useMemo(() => {
-    return calculateAllGroupStandings(groupPredictions);
-  }, [groupPredictions]);
+  const standings = useMemo(() => calculateAllGroupStandings(groupPredictions), [groupPredictions]);
+  const roundOf32 = useMemo(() => resolveRoundOf32(standings), [standings]);
+  const groupStageComplete = useMemo(() => isGroupStageComplete(groupPredictions), [groupPredictions]);
+  const leftPath = roundOf32.filter((_, idx) => idx < 8);
+  const rightPath = roundOf32.filter((_, idx) => idx >= 8);
 
-  const roundOf32 = useMemo(() => {
-    return resolveRoundOf32(standings);
-  }, [standings]);
-
-  const groupStageComplete = useMemo(() => {
-    return isGroupStageComplete(groupPredictions);
-  }, [groupPredictions]);
-
-  function setScore(
-    matchId: string,
-    side: 'homeScore' | 'awayScore',
-    rawValue: string
-  ) {
+  function setScore(matchId: string, side: 'homeScore' | 'awayScore', rawValue: string) {
     const value = rawValue === '' ? null : Number(rawValue);
 
     setGroupPredictions((prev) => ({
@@ -64,20 +83,9 @@ export default function PorraPage() {
   async function handleSaveDraft() {
     setSubmitting(true);
     setMsg(null);
-
     try {
-      const payload = {
-        email,
-        tournamentId: WORLD_CUP_2026_SOURCE_OF_TRUTH.tournament.id,
-        status: 'draft',
-        groupStagePredictions: groupPredictions,
-        calculatedStandings: standings,
-        resolvedRoundOf32: roundOf32,
-        updatedAt: new Date().toISOString(),
-      };
-
-      console.log('Guardar borrador', payload);
-      setMsg('Borrador guardado.');
+      console.log('Guardar borrador', { email, groupPredictions, standings, roundOf32 });
+      setMsg('Partido en pausa. Tu porra queda guardada.');
     } catch (error: any) {
       setMsg(error.message || 'Error guardando borrador.');
     } finally {
@@ -87,28 +95,14 @@ export default function PorraPage() {
 
   async function handleSubmit() {
     if (!groupStageComplete) {
-      setMsg('Debes completar todos los partidos de la fase de grupos.');
+      setMsg('Completa todos los partidos antes del pitido final.');
       return;
     }
-
     setSubmitting(true);
     setMsg(null);
-
     try {
-      const payload = {
-        email,
-        tournamentId: WORLD_CUP_2026_SOURCE_OF_TRUTH.tournament.id,
-        status: 'submitted',
-        groupStagePredictions: groupPredictions,
-        calculatedStandings: standings,
-        resolvedRoundOf32: roundOf32,
-        submittedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      console.log('Enviar porra', payload);
       setSubmitted(true);
-      setMsg('Porra enviada correctamente.');
+      setMsg('Final del partido. Tu porra ya está en juego.');
     } catch (error: any) {
       setMsg(error.message || 'Error enviando la porra.');
     } finally {
@@ -119,115 +113,61 @@ export default function PorraPage() {
   return (
     <>
       <Header />
-
       <main className="mx-auto max-w-7xl px-4 py-10">
-        <h1 className="text-3xl font-bold">Mi porra</h1>
+        <h1 className="text-3xl font-bold">Arrancan tus 90 minutos.</h1>
+        <p className="mt-2 text-wc-muted">Marca cada resultado y deja que la tabla haga el resto.</p>
 
-        <p className="mt-2 text-sm text-gray-600">
-          Introduce los resultados de todos los partidos de la fase de grupos.
-          La clasificación se calculará automáticamente y después verás el cruce
-          inicial del cuadro.
-        </p>
-
-        <div className="mt-6 rounded-lg bg-white p-4 shadow-sm">
-          <label className="mb-1 block text-sm font-medium">
-            Tu correo (con el que te registraste)
-          </label>
+        <div className="wc-card mt-6 p-4">
+          <label className="mb-1 block text-sm">Correo de registro</label>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border px-3 py-2"
+            className="wc-input"
             type="email"
             placeholder="tuemail@empresa.com"
           />
         </div>
 
-        <section className="mt-8 rounded-xl border bg-white p-6">
+        <section className="wc-card mt-8 p-6">
           <h2 className="mb-6 text-2xl font-bold">Fase de grupos</h2>
-
           <div className="space-y-8">
             {GROUP_KEYS.map((groupKey) => {
-              const matches = WORLD_CUP_2026_SOURCE_OF_TRUTH.groupStageMatches.filter(
-                (match) => match.group === groupKey
-              );
+              const matches = WORLD_CUP_2026_SOURCE_OF_TRUTH.groupStageMatches.filter((m) => m.group === groupKey);
               const table = standings[groupKey];
 
               return (
-                <div key={groupKey} className="rounded-xl border p-4">
-                  <h3 className="mb-4 text-lg font-semibold">Grupo {groupKey}</h3>
+                <div key={groupKey} className="rounded-xl border border-wc-border p-4">
+                  <h3 className="mb-4 text-lg font-semibold text-wc-primary">Grupo {groupKey}</h3>
 
                   <div className="grid gap-6 xl:grid-cols-2">
                     <div className="space-y-3">
                       {matches.map((match) => (
-                        <div key={match.id} className="rounded-lg border p-3">
-                          <div className="mb-2 text-xs text-gray-500">
-                            {match.dateLabel} · Jornada {match.matchday}
-                          </div>
-
-                          <div className="grid grid-cols-[1fr,70px,20px,70px,1fr] items-center gap-2">
-                            <div>{match.homeTeam}</div>
-
-                            <input
-                              type="number"
-                              min={0}
-                              value={groupPredictions[match.id]?.homeScore ?? ''}
-                              onChange={(e) =>
-                                setScore(match.id, 'homeScore', e.target.value)
-                              }
-                              className="rounded border px-2 py-1 text-center"
-                              disabled={closed}
-                            />
-
-                            <div className="text-center">-</div>
-
-                            <input
-                              type="number"
-                              min={0}
-                              value={groupPredictions[match.id]?.awayScore ?? ''}
-                              onChange={(e) =>
-                                setScore(match.id, 'awayScore', e.target.value)
-                              }
-                              className="rounded border px-2 py-1 text-center"
-                              disabled={closed}
-                            />
-
-                            <div className="text-right">{match.awayTeam}</div>
+                        <div key={match.id} className="rounded-lg border border-wc-border bg-wc-background p-3">
+                          <div className="mb-2 text-xs text-wc-muted">{match.dateLabel} · Jornada {match.matchday}</div>
+                          <div className="grid grid-cols-[1fr,56px,20px,56px,1fr] items-center gap-2">
+                            <div><TeamLabel team={match.homeTeam} /></div>
+                            <input type="number" min={0} value={groupPredictions[match.id]?.homeScore ?? ''} onChange={(e) => setScore(match.id, 'homeScore', e.target.value)} className="wc-input px-2 py-1 text-center" disabled={closed} />
+                            <div className="text-center text-wc-muted">-</div>
+                            <input type="number" min={0} value={groupPredictions[match.id]?.awayScore ?? ''} onChange={(e) => setScore(match.id, 'awayScore', e.target.value)} className="wc-input px-2 py-1 text-center" disabled={closed} />
+                            <div className="flex justify-end"><TeamLabel team={match.awayTeam} /></div>
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    <div className="overflow-x-auto rounded-lg border p-3">
+                    <div className="overflow-x-auto rounded-lg border border-wc-border p-3">
                       <h4 className="mb-3 font-semibold">Clasificación automática</h4>
-
                       <table className="min-w-full text-sm">
                         <thead>
-                          <tr className="border-b text-left">
-                            <th className="py-2">Equipo</th>
-                            <th className="py-2">PJ</th>
-                            <th className="py-2">PG</th>
-                            <th className="py-2">PE</th>
-                            <th className="py-2">PP</th>
-                            <th className="py-2">GF</th>
-                            <th className="py-2">GC</th>
-                            <th className="py-2">DG</th>
-                            <th className="py-2">Pts</th>
+                          <tr className="border-b border-wc-border text-left text-wc-muted">
+                            <th className="py-2">Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th>Pts</th>
                           </tr>
                         </thead>
                         <tbody>
                           {table.map((row, index) => (
-                            <tr key={row.team} className="border-b">
-                              <td className="py-2 font-medium">
-                                {index + 1}. {row.team}
-                              </td>
-                              <td>{row.played}</td>
-                              <td>{row.won}</td>
-                              <td>{row.drawn}</td>
-                              <td>{row.lost}</td>
-                              <td>{row.goalsFor}</td>
-                              <td>{row.goalsAgainst}</td>
-                              <td>{row.goalDifference}</td>
-                              <td className="font-semibold">{row.points}</td>
+                            <tr key={row.team} className="border-b border-wc-border/60">
+                              <td className="py-2 font-medium"><span className="mr-2">{index < 2 ? '⭐' : '•'}</span><TeamLabel team={row.team} /></td>
+                              <td>{row.played}</td><td>{row.won}</td><td>{row.drawn}</td><td>{row.lost}</td><td>{row.goalsFor}</td><td>{row.goalsAgainst}</td><td>{row.goalDifference}</td><td className="font-semibold text-wc-primary">{row.points}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -240,82 +180,48 @@ export default function PorraPage() {
           </div>
         </section>
 
-        <section className="mt-8 rounded-xl border bg-white p-6">
-          <h2 className="mb-4 text-2xl font-bold">Cruce inicial generado</h2>
-          <p className="mb-4 text-sm text-gray-600">
-            Este bloque se resuelve automáticamente a partir de la clasificación
-            de grupos y los mejores terceros.
-          </p>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {roundOf32.map((match) => (
-              <div key={match.id} className="rounded-lg border p-4">
-                <div className="mb-2 text-sm font-semibold text-gray-500">
-                  {match.id}
+        <section className="wc-card mt-8 p-6">
+          <h2 className="mb-1 text-2xl font-bold">Cuadro de eliminatorias</h2>
+          <p className="mb-4 text-sm text-wc-muted">Cruce grande a doble lado: de la fase de grupos al camino hacia la copa.</p>
+          <div className="grid gap-4 lg:grid-cols-[1fr,220px,1fr]">
+            <div className="space-y-3">
+              {leftPath.map((m) => (
+                <div key={m.id} className="rounded-lg border border-wc-border bg-wc-background p-3">
+                  <p className="text-xs font-semibold text-wc-secondary">{m.id}</p>
+                  <p className="mt-1 text-sm"><TeamLabel team={m.homeTeam} /></p>
+                  <p className="text-sm"><TeamLabel team={m.awayTeam} /></p>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {match.homeRef} vs {match.awayRef}
-                </div>
-                <div className="mt-2 font-medium">
-                  {match.homeTeam ?? 'Pendiente'} vs {match.awayTeam ?? 'Pendiente'}
-                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-center rounded-xl border border-wc-gold/50 bg-wc-gold/10 p-4 text-center">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-wc-gold">Final</p>
+                <p className="mt-2 text-lg font-bold">Aquí se define la historia.</p>
               </div>
-            ))}
+            </div>
+            <div className="space-y-3">
+              {rightPath.map((m) => (
+                <div key={m.id} className="rounded-lg border border-wc-border bg-wc-background p-3">
+                  <p className="text-xs font-semibold text-wc-secondary">{m.id}</p>
+                  <p className="mt-1 text-sm"><TeamLabel team={m.homeTeam} /></p>
+                  <p className="text-sm"><TeamLabel team={m.awayTeam} /></p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="mt-8 rounded-xl border bg-white p-6">
-          <h2 className="mb-4 text-2xl font-bold">Acciones</h2>
-
+        <section className="wc-card mt-8 p-6">
+          <h2 className="mb-4 text-2xl font-bold">Acciones clave</h2>
           <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              disabled={submitting || closed}
-              onClick={handleSaveDraft}
-              className="rounded-lg border px-5 py-3 font-semibold"
-            >
-              Guardar borrador
-            </button>
-
-            <button
-              type="button"
-              disabled={submitting || closed || !groupStageComplete}
-              onClick={handleSubmit}
-              className="rounded-lg bg-teal-700 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Enviar porra
-            </button>
+            <button type="button" disabled={submitting || closed} onClick={handleSaveDraft} className="wc-btn-secondary">Guardar borrador</button>
+            <button type="button" disabled={submitting || closed || !groupStageComplete} onClick={handleSubmit} className="wc-btn-primary">Enviar porra</button>
           </div>
-
-          {!groupStageComplete && (
-            <p className="mt-3 text-sm text-red-600">
-              Debes completar todos los partidos de la fase de grupos antes de enviar.
-            </p>
-          )}
-
-          {submitted && (
-            <p className="mt-3 text-sm font-medium text-green-700">
-              Tu porra se ha enviado correctamente.
-            </p>
-          )}
-
-          {msg && <p className="mt-3 text-sm">{msg}</p>}
-        </section>
-
-        <section className="mt-8 rounded-xl border bg-white p-6">
-          <h2 className="mb-3 text-xl font-bold">Sistema de puntuación</h2>
-          <ul className="space-y-1 text-sm text-gray-700">
-            <li>• Acertar vencedor en grupos: 5 puntos</li>
-            <li>• Acertar vencedor y resultado exacto en grupos: 15 puntos</li>
-            <li>• Acertar empate: 10 puntos</li>
-            <li>• Acertar empate exacto: 20 puntos</li>
-            <li>• La ronda de 32 sigue pendiente de decisión en la fuente de verdad</li>
-            <li>• El resultado cuenta hasta final de prórroga</li>
-            <li>• No cuentan los penaltis</li>
-          </ul>
+          {!groupStageComplete && <p className="mt-3 text-sm text-wc-accentSoft">Cierra la fase de grupos para pasar a eliminatorias.</p>}
+          {submitted && <p className="mt-3 text-sm font-medium text-wc-gold">Aquí se empieza a levantar la copa.</p>}
+          {msg && <p className="mt-3 text-sm text-wc-muted">{msg}</p>}
         </section>
       </main>
-
       <Footer />
     </>
   );
