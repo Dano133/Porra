@@ -6,62 +6,39 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      <main className="mx-auto max-w-5xl px-4 py-10">
-      <section className="mx-auto max-w-5xl px-6 py-20 text-center">
-        <h1 className="text-5xl font-extrabold tracking-tight text-wc-text md:text-6xl">
-          La porra del Mundial
-        </h1>
+      <main className="mx-auto max-w-6xl px-4 py-10 md:py-16">
+        <section className="wc-card p-8 text-center md:p-14">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-wc-primary">Mundial 2026</p>
+          <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-wc-text md:text-6xl">Tu porra, tu legado.</h1>
+          <p className="mx-auto mt-5 max-w-3xl text-lg text-wc-muted">El balón está en juego: predice, compite y sube en la tabla con una experiencia moderna y premium.</p>
+          <p className="mt-4 text-wc-gold">"La historia se escribe partido a partido."</p>
+          <div className="mt-10 flex flex-wrap justify-center gap-3">
+            <Link href="/registro" className="wc-btn-primary">Crear cuenta</Link>
+            <Link href="/porra" className="wc-btn-secondary">Empezar mi porra</Link>
+            <Link href="/ranking" className="wc-btn-gold">Ver clasificación</Link>
+          </div>
+        </section>
 
-        <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-wc-muted md:text-xl">
-          Predice los resultados del torneo, compite con tus amigos y sigue la clasificación en tiempo real.
-        </p>
-
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <Link
-            href="/registro"
-            className="inline-flex h-12 items-center justify-center rounded-xl bg-wc-primary px-8 font-semibold text-black transition hover:opacity-90"
-          >
-            Registrarme
-          </Link>
-
-          <Link
-            href="/porra"
-            className="inline-flex h-12 items-center justify-center rounded-xl bg-wc-secondary px-8 font-semibold text-white transition hover:opacity-90"
-          >
-            Completar mi porra
-          </Link>
-
-          <Link
-            href="/ranking"
-            className="inline-flex h-12 items-center justify-center rounded-xl border border-wc-border bg-wc-surface px-8 font-semibold text-wc-text transition hover:border-wc-primary hover:text-wc-primary"
-          >
-            Ver ranking
-          </Link>
-        </div>
-      </section>
-
-        <section className="grid md:grid-cols-2 gap-6 mt-10">
-          <div className="bg-white rounded-lg p-6 shadow-sm">
-            <h2 className="font-bold text-xl mb-2">¿Cómo funciona?</h2>
-            <ol className="list-decimal list-inside text-gray-700 space-y-1">
-              <li>Te registras con tu nombre y email.</li>
-              <li>Rellenas tu porra antes de la fecha límite.</li>
-              <li>Cargamos los resultados oficiales y calculamos tus puntos.</li>
-              <li>Recibes actualizaciones por email cada 15 días.</li>
+        <section className="mt-8 grid gap-6 md:grid-cols-2">
+          <div className="wc-card p-6">
+            <h2 className="text-xl font-bold">Cómo se juega</h2>
+            <p className="mt-1 text-wc-muted">Una dinámica clara, rápida y competitiva.</p>
+            <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-wc-muted">
+              <li>Te registras y entras en la competición.</li>
+              <li>Rellenas tu porra antes del cierre.</li>
+              <li>Se calculan puntos automáticamente.</li>
+              <li>Subes posiciones en cada fecha.</li>
             </ol>
           </div>
-          <div className="bg-white rounded-lg p-6 shadow-sm">
-            <h2 className="font-bold text-xl mb-2">Reglas rápidas</h2>
-            <ul className="text-gray-700 space-y-1 text-sm">
-              <li>· Acertar vencedor en grupos: 5 pts (15 si exacto).</li>
-              <li>· Acertar empate: 10 pts (20 si exacto).</li>
-              <li>· Octavos: 10/cruce, +20 si exacto.</li>
-              <li>· Final: 100/cruce, +100 si exacto.</li>
-              <li>· Acertar campeón: 300 pts.</li>
+          <div className="wc-card p-6">
+            <h2 className="text-xl font-bold">Golpes de puntuación</h2>
+            <ul className="mt-3 space-y-2 text-sm text-wc-muted">
+              <li>• Resultado exacto en grupos: <span className="text-wc-primary">15 pts</span></li>
+              <li>• Empate exacto: <span className="text-wc-primary">20 pts</span></li>
+              <li>• Final acertada: <span className="text-wc-gold">100 + 100 pts</span></li>
+              <li>• Campeón: <span className="text-wc-gold">300 pts</span></li>
             </ul>
-            <Link href="/reglas" className="inline-block mt-3 text-wc-primary text-sm font-medium">
-              Ver reglas completas →
-            </Link>
+            <Link href="/reglas" className="mt-4 inline-block text-sm font-semibold text-wc-primary hover:text-wc-accentSoft">Ver reglas completas →</Link>
           </div>
         </section>
       </main>

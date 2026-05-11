@@ -20,10 +20,19 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100%;
-  background-color: var(--wc-background);
+  background: radial-gradient(circle at top, #141a2e, var(--wc-background) 45%);
   color: var(--wc-text);
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+@layer components {
+  .wc-card { @apply rounded-2xl border border-wc-border bg-wc-surface/95 shadow-lg shadow-black/20; }
+  .wc-input { @apply w-full rounded-lg border border-wc-border bg-wc-background px-3 py-2 text-wc-text placeholder:text-wc-muted/70 focus:border-wc-primary focus:outline-none focus:ring-2 focus:ring-wc-primary/30; }
+  .wc-btn-primary { @apply inline-flex items-center justify-center rounded-lg bg-wc-primary px-5 py-2.5 font-semibold text-wc-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50; }
+  .wc-btn-secondary { @apply inline-flex items-center justify-center rounded-lg bg-wc-secondary px-5 py-2.5 font-semibold text-wc-text transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50; }
+  .wc-btn-accent { @apply inline-flex items-center justify-center rounded-lg bg-wc-accent px-5 py-2.5 font-semibold text-wc-text transition hover:bg-wc-accentSoft disabled:cursor-not-allowed disabled:opacity-50; }
+  .wc-btn-gold { @apply inline-flex items-center justify-center rounded-lg border border-wc-gold bg-wc-gold/10 px-5 py-2.5 font-semibold text-wc-gold transition hover:bg-wc-gold/20; }
 }
