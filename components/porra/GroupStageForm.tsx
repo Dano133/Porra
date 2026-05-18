@@ -2,6 +2,7 @@
 
 import { WORLD_CUP_GROUPS } from "@/lib/world-cup/groups";
 import { GroupKey, GroupStandingsMap } from "@/lib/world-cup/types";
+import { formatTeamWithFlag } from "@/lib/world-cup/team-identity";
 
 interface Props {
   standings: GroupStandingsMap;
@@ -31,7 +32,7 @@ export default function GroupStageForm({ standings, onChange }: Props) {
   };
 
   return (
-    <section className="rounded-xl border bg-white p-6">
+    <section className="wc-card p-6">
       <h2 className="mb-6 text-2xl font-bold">Fase de grupos</h2>
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -39,7 +40,7 @@ export default function GroupStageForm({ standings, onChange }: Props) {
           const teams = WORLD_CUP_GROUPS[groupKey];
 
           return (
-            <div key={groupKey} className="rounded-xl border p-4">
+            <div key={groupKey} className="rounded-xl border border-wc-border bg-wc-background/40 p-4">
               <h3 className="mb-4 text-lg font-semibold">Grupo {groupKey}</h3>
 
               <div className="space-y-3">
@@ -47,7 +48,7 @@ export default function GroupStageForm({ standings, onChange }: Props) {
                   <div key={position.key}>
                     <label className="mb-1 block text-sm font-medium">{position.label}</label>
                     <select
-                      className="w-full rounded-lg border px-3 py-2"
+                      className="wc-select"
                       value={standings[groupKey][position.key]}
                       onChange={(e) =>
                         handleSelectChange(groupKey, position.key, e.target.value)
