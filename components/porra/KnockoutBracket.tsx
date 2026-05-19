@@ -1,6 +1,8 @@
 "use client";
 
 import { GeneratedBracket, MatchPrediction } from "@/lib/world-cup/types";
+import TeamLabel from "@/components/TeamLabel";
+import { formatTeamWithFlag } from "@/lib/world-cup/team-identity";
 
 interface Props {
   bracket: GeneratedBracket;
@@ -24,11 +26,11 @@ function MatchCard({
   const awayScore = match.awayScore ?? "";
 
   return (
-    <div className="rounded-lg border p-4">
-      <div className="mb-2 text-sm font-semibold text-gray-500">{match.id}</div>
+    <div className="rounded-lg border border-wc-border bg-wc-background/60 p-4">
+      <div className="mb-2 text-sm font-semibold text-wc-muted">{match.id}</div>
       <div className="space-y-2">
-        <div className="rounded bg-gray-50 px-3 py-2">{match.homeTeam ?? "Pendiente"}</div>
-        <div className="rounded bg-gray-50 px-3 py-2">{match.awayTeam ?? "Pendiente"}</div>
+        <div className="rounded border border-wc-border bg-wc-background px-3 py-2"><TeamLabel team={match.homeTeam} fallbackLabel="Pendiente" size="sm" /></div>
+        <div className="rounded border border-wc-border bg-wc-background px-3 py-2"><TeamLabel team={match.awayTeam} fallbackLabel="Pendiente" size="sm" /></div>
       </div>
 
       {match.homeTeam && match.awayTeam && (
@@ -38,31 +40,31 @@ function MatchCard({
               type="number"
               defaultValue={homeScore}
               placeholder="Goles local"
-              className="rounded border px-3 py-2"
+              className="wc-input"
               id={`${match.id}-home`}
             />
             <input
               type="number"
               defaultValue={awayScore}
               placeholder="Goles visitante"
-              className="rounded border px-3 py-2"
+              className="wc-input"
               id={`${match.id}-away`}
             />
           </div>
 
           <select
             defaultValue={match.winner ?? ""}
-            className="w-full rounded border px-3 py-2"
+            className="w-full wc-input"
             id={`${match.id}-winner`}
           >
             <option value="">Selecciona ganador</option>
-            <option value={match.homeTeam}>{match.homeTeam}</option>
-            <option value={match.awayTeam}>{match.awayTeam}</option>
+            <option value={match.homeTeam}>{formatTeamWithFlag(match.homeTeam)}</option>
+            <option value={match.awayTeam}>{formatTeamWithFlag(match.awayTeam)}</option>
           </select>
 
           <button
             type="button"
-            className="rounded bg-amber-500 px-4 py-2 font-medium text-white"
+            className="wc-btn-gold"
             onClick={() => {
               const homeInput = document.getElementById(`${match.id}-home`) as HTMLInputElement | null;
               const awayInput = document.getElementById(`${match.id}-away`) as HTMLInputElement | null;
@@ -103,7 +105,7 @@ export default function KnockoutBracket({ bracket, onMatchUpdate }: Props) {
   ];
 
   return (
-    <section className="rounded-xl border bg-white p-6">
+    <section className="wc-card p-6">
       <h2 className="mb-6 text-2xl font-bold">Cuadro eliminatorio</h2>
 
       <div className="space-y-8">

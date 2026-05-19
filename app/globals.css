@@ -15,15 +15,22 @@
   --wc-border: #2A3140;
 }
 
-html,
+html, body { min-height: 100%; }
 body {
   margin: 0;
-  padding: 0;
-  min-height: 100%;
-  background-color: var(--wc-background);
+  background: radial-gradient(circle at top, #1a1f33 0%, var(--wc-background) 52%);
   color: var(--wc-text);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .wc-card { @apply rounded-2xl border border-wc-border bg-wc-surface shadow-lg shadow-black/25; }
+  .wc-input { @apply w-full rounded-xl border border-wc-border bg-wc-background/85 px-3 py-2.5 text-wc-text placeholder:text-wc-muted/70 focus:border-wc-primary focus:outline-none focus:ring-2 focus:ring-wc-primary/30; }
+  .wc-select { @apply wc-input pr-10; }
+  .wc-btn { @apply inline-flex items-center justify-center rounded-xl px-5 py-2.5 font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-wc-background disabled:cursor-not-allowed disabled:opacity-50; }
+  .wc-btn-primary { @apply wc-btn bg-wc-primary text-wc-background hover:brightness-95 focus:ring-wc-primary/70 active:scale-[0.99]; }
+  .wc-btn-secondary { @apply wc-btn bg-wc-secondary text-wc-text hover:brightness-110 focus:ring-wc-secondary/70 active:scale-[0.99]; }
+  .wc-btn-accent { @apply wc-btn bg-wc-accent text-wc-text hover:bg-wc-accentSoft focus:ring-wc-accent/70 active:scale-[0.99]; }
+  .wc-btn-gold { @apply wc-btn border border-wc-gold/50 bg-wc-gold/10 text-wc-gold hover:bg-wc-gold/20 focus:ring-wc-gold/60; }
+  .wc-badge { @apply inline-flex items-center rounded-full border border-wc-border bg-wc-background px-2.5 py-1 text-xs font-semibold text-wc-muted; }
 }

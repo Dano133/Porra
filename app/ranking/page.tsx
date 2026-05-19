@@ -2,9 +2,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { MICROCOPY } from '@/lib/microcopy';
 import { getDb } from '@/lib/firebase-client';
 import { collection, doc, getDoc, getDocs, orderBy, query, where, limit } from 'firebase/firestore';
-import type { Score, Settings, Participant, RankingSnapshot } from '@/lib/types';
+import type { Score, Settings, RankingSnapshot } from '@/lib/types';
 
 interface Row {
   rank: number;
@@ -75,16 +76,16 @@ export default function RankingPage() {
   );
 
   if (!enabled) {
-    return (<><Header /><main className="p-10 text-center">El ranking público está deshabilitado.</main><Footer /></>);
+    return (<><Header /><main className="mx-auto max-w-4xl px-4 py-10"><div className="wc-card p-8 text-center text-wc-muted">El ranking público está deshabilitado por ahora.</div></main><Footer /></>);
   }
 
   return (
     <>
       <Header />
-      <main className="mx-auto max-w-3xl px-4 py-10">
-        <h1 className="text-2xl font-bold">Ranking público</h1>
+      <main className="mx-auto max-w-4xl px-4 py-10">
+        <h1 className="text-3xl font-bold">{MICROCOPY.ranking}</h1>
         {updatedAt && (
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-wc-muted mt-1">
             Última actualización: {new Date(updatedAt).toLocaleString('es-ES')}
           </p>
         )}
@@ -92,20 +93,20 @@ export default function RankingPage() {
         <input
           placeholder="Buscar por nombre…"
           value={filter} onChange={e => setFilter(e.target.value)}
-          className="mt-4 w-full border rounded-md px-3 py-2"
+          className="mt-4 w-full wc-input px-3 py-2"
         />
 
         {loading ? (
           <p className="mt-6">Cargando…</p>
         ) : (
           <>
-            <h2 className="mt-6 font-bold">Top 10</h2>
-            <ol className="mt-2 bg-white rounded-md shadow-sm divide-y">
+            <h2 className="mt-6 font-bold text-wc-gold">Top 10 · Zona dorada</h2>
+            <ol className="mt-2 wc-card divide-y divide-wc-border">
               {filtered.slice(0, 10).map(r => <RankRow key={r.participantId} row={r} highlight />)}
             </ol>
 
-            <h2 className="mt-6 font-bold">Tabla completa</h2>
-            <ol className="mt-2 bg-white rounded-md shadow-sm divide-y">
+            <h2 className="mt-6 font-bold">Tabla completa</h2><p className="text-sm text-wc-muted">Cada punto vale, cada jornada pesa.</p>
+            <ol className="mt-2 wc-card divide-y divide-wc-border">
               {filtered.map(r => <RankRow key={r.participantId} row={r} />)}
             </ol>
           </>
@@ -117,12 +118,13 @@ export default function RankingPage() {
 }
 
 function RankRow({ row, highlight }: { row: Row; highlight?: boolean }) {
+  const podiumStyle = row.rank === 1 ? 'bg-wc-gold/20 border-l-2 border-wc-gold' : row.rank === 2 ? 'bg-slate-300/10 border-l-2 border-slate-300/60' : row.rank === 3 ? 'bg-amber-700/15 border-l-2 border-amber-600/70' : '';
   return (
-    <li className={`flex items-center gap-3 px-4 py-2 ${highlight ? 'bg-yellow-50' : ''}`}>
-      <span className="w-8 text-right font-bold text-gray-500">{row.rank}</span>
+    <li className={`flex items-center gap-3 px-4 py-2 ${highlight ? podiumStyle : ''}`}>
+      <span className="w-8 text-right font-bold text-wc-muted">{row.rank}</span>
       <span className="flex-1">{row.fullName}</span>
       <span className="font-semibold">{row.totalPoints} pts</span>
-      <span className={`w-12 text-right text-xs ${row.delta > 0 ? 'text-green-700' : row.delta < 0 ? 'text-red-700' : 'text-gray-400'}`}>
+      <span className={`w-12 text-right text-xs ${row.delta > 0 ? 'text-wc-primary' : row.delta < 0 ? 'text-wc-accentSoft' : 'text-wc-muted/60'}`}>
         {row.delta > 0 ? `▲${row.delta}` : row.delta < 0 ? `▼${Math.abs(row.delta)}` : '–'}
       </span>
     </li>
