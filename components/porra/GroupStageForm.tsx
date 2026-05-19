@@ -56,8 +56,8 @@ export default function GroupStageForm({ standings, onChange }: Props) {
                     >
                       <option value="">Selecciona un equipo</option>
                       {teams.map((team) => (
-                        <option key={team} value={team}>
-                          {team}
+                        <option key={formatTeamWithFlag(team)} value={formatTeamWithFlag(team)}>
+                          {formatTeamWithFlag(team)}
                         </option>
                       ))}
                     </select>

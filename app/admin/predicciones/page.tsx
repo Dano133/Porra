@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { getDb } from '@/lib/firebase-client';
 import type { Prediction } from '@/lib/types';
+import TeamLabel from '@/components/TeamLabel';
 
 export default function AdminPredicciones() {
   const [list, setList] = useState<Prediction[]>([]);
@@ -30,7 +31,7 @@ export default function AdminPredicciones() {
               <tr key={p.id} className="border-t">
                 <td className="p-2 font-mono text-xs">{p.participantId}</td>
                 <td>{p.status}</td>
-                <td>{p.championPrediction || '—'}</td>
+                <td><TeamLabel team={p.championPrediction} fallbackLabel="—" size="sm" /></td>
                 <td>
                   {p.status !== 'cancelled' &&
                     <button onClick={() => invalidate(p)} className="text-red-600">Invalidar</button>}
