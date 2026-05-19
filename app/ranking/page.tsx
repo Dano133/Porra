@@ -2,9 +2,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { MICROCOPY } from '@/lib/microcopy';
 import { getDb } from '@/lib/firebase-client';
 import { collection, doc, getDoc, getDocs, orderBy, query, where, limit } from 'firebase/firestore';
-import type { Score, Settings, Participant, RankingSnapshot } from '@/lib/types';
+import type { Score, Settings, RankingSnapshot } from '@/lib/types';
 
 interface Row {
   rank: number;
@@ -82,7 +83,7 @@ export default function RankingPage() {
     <>
       <Header />
       <main className="mx-auto max-w-4xl px-4 py-10">
-        <h1 className="text-3xl font-bold">Así se mueve la tabla.</h1>
+        <h1 className="text-3xl font-bold">{MICROCOPY.ranking}</h1>
         {updatedAt && (
           <p className="text-sm text-wc-muted mt-1">
             Última actualización: {new Date(updatedAt).toLocaleString('es-ES')}
@@ -117,8 +118,9 @@ export default function RankingPage() {
 }
 
 function RankRow({ row, highlight }: { row: Row; highlight?: boolean }) {
+  const podiumStyle = row.rank === 1 ? 'bg-wc-gold/20 border-l-2 border-wc-gold' : row.rank === 2 ? 'bg-slate-300/10 border-l-2 border-slate-300/60' : row.rank === 3 ? 'bg-amber-700/15 border-l-2 border-amber-600/70' : '';
   return (
-    <li className={`flex items-center gap-3 px-4 py-2 ${highlight ? 'bg-wc-gold/10' : ''}`}>
+    <li className={`flex items-center gap-3 px-4 py-2 ${highlight ? podiumStyle : ''}`}>
       <span className="w-8 text-right font-bold text-wc-muted">{row.rank}</span>
       <span className="flex-1">{row.fullName}</span>
       <span className="font-semibold">{row.totalPoints} pts</span>

@@ -1,5 +1,6 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { MICROCOPY } from '@/lib/microcopy';
 
 export default function ReglasPage() {
   return (
@@ -8,7 +9,7 @@ export default function ReglasPage() {
       <main className="mx-auto max-w-4xl px-4 py-10">
         <div className="wc-card p-8">
           <h1 className="text-3xl font-bold">Reglas del torneo</h1>
-          <p className="mt-2 text-wc-muted">Juega con cabeza: cada detalle puede decidir la clasificación.</p>
+          <p className="mt-2 text-wc-muted">{MICROCOPY.rules}</p>
           <p className="mt-3 text-wc-secondary">"Sin reglamento no hay remontada."</p>
 
           <h2 className="mt-7 text-xl font-semibold text-wc-primary">Fase de grupos</h2>

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { collection, doc, getDocs, orderBy, query, updateDoc } from 'firebase/firestore';
 import { getDb, getFirebaseAuth } from '@/lib/firebase-client';
 import type { Match } from '@/lib/types';
+import TeamLabel from '@/components/TeamLabel';
 
 export default function AdminResultados() {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -74,14 +75,14 @@ function Row({ m, onSave }: { m: Match; onSave: (m: Match, h: string, a: string)
     <tr className="border-t">
       <td className="p-2">{new Date(m.kickoffAt).toLocaleString('es-ES')}</td>
       <td>{m.stage}{m.group ? ` ${m.group}` : ''}</td>
-      <td>{m.homeTeam}</td>
+      <td><TeamLabel team={m.homeTeam} size="sm" /></td>
       <td className="space-x-1">
         <input value={h} onChange={e => setH(e.target.value)} className="w-12 border rounded text-center" />
         -
         <input value={a} onChange={e => setA(e.target.value)} className="w-12 border rounded text-center" />
         <button onClick={() => onSave(m, h, a)} className="ml-2 text-blue-600 text-xs">Guardar</button>
       </td>
-      <td>{m.awayTeam}</td>
+      <td><TeamLabel team={m.awayTeam} size="sm" /></td>
       <td>{m.status}</td>
     </tr>
   );

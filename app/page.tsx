@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { MICROCOPY } from '@/lib/microcopy';
 
 export default function HomePage() {
   return (
@@ -10,7 +11,7 @@ export default function HomePage() {
         <section className="wc-card p-8 text-center md:p-14">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-wc-primary">Mundial 2026</p>
           <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-wc-text md:text-6xl">Tu porra, tu legado.</h1>
-          <p className="mx-auto mt-5 max-w-3xl text-lg text-wc-muted">El balón está en juego: predice, compite y sube en la tabla con una experiencia moderna y premium.</p>
+          <p className="mx-auto mt-5 max-w-3xl text-lg text-wc-muted">{MICROCOPY.home}</p>
           <p className="mt-4 text-wc-gold">"La historia se escribe partido a partido."</p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Link href="/registro" className="wc-btn-primary">Crear cuenta</Link>
