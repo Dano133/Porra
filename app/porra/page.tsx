@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import TeamLabel from '@/components/TeamLabel';
@@ -15,6 +15,9 @@ import {
   type GroupPredictionsMap,
 } from '@/lib/world-cup/standings';
 import { resolveRoundOf32 } from '@/lib/world-cup/bracket-resolver';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { auth } from '@/lib/firebase/client';
+import { getUserPrediction, saveUserPredictionDraft, submitUserPrediction } from '@/lib/firebase/predictions';
 
 const GROUP_KEYS = Object.keys(WORLD_CUP_2026_SOURCE_OF_TRUTH.groups) as GroupKey[];
 
@@ -147,12 +150,32 @@ function KnockoutBracket({ leftPath, rightPath }: { leftPath: Array<{ id: string
 }
 
 export default function PorraPage() {
-  const [email, setEmail] = useState('');
+  const [user, setUser] = useState<User | null>(null);
   const [groupPredictions, setGroupPredictions] = useState<GroupPredictionsMap>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [loadingPrediction, setLoadingPrediction] = useState(false);
   const closed = false;
+
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  useEffect(() => {
+    async function loadPrediction() {
+      if (!user) return;
+      setLoadingPrediction(true);
+      try {
+        const data = await getUserPrediction(user.uid);
+        if (data?.groupPredictions) setGroupPredictions(data.groupPredictions as GroupPredictionsMap);
+      } catch (error: any) {
+        setMsg(error?.message ?? 'Error cargando porra');
+      } finally {
+        setLoadingPrediction(false);
+      }
+    }
+    void loadPrediction();
+  }, [user]);
+
 
   const standings = useMemo(() => calculateAllGroupStandings(groupPredictions), [groupPredictions]);
   const roundOf32 = useMemo(() => resolveRoundOf32(standings), [standings]);
@@ -173,20 +196,43 @@ export default function PorraPage() {
   }
 
   async function handleSaveDraft() {
+    if (!user) return setMsg('Debes iniciar sesión para guardar tu porra.');
     setSubmitting(true);
     setMsg(null);
-    try { setMsg(MICROCOPY.saveDraft); }
-    catch (error: any) { setMsg(error.message || 'Error guardando borrador.'); }
-    finally { setSubmitting(false); }
+    try {
+      await saveUserPredictionDraft({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        payload: { groupPredictions, knockoutPredictions: roundOf32, champion: null, calculatedSnapshot: { standings, roundOf32 } },
+      });
+      setMsg('Porra guardada correctamente');
+    } catch (error: any) {
+      setMsg(error.message || 'Error guardando porra');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleSubmit() {
+    if (!user) return setMsg('Debes iniciar sesión para guardar tu porra.');
     if (!groupStageComplete) return setMsg(MICROCOPY.completeGroups);
     setSubmitting(true);
     setMsg(null);
-    try { setSubmitted(true); setMsg(MICROCOPY.submitPrediction); }
-    catch (error: any) { setMsg(error.message || 'Error enviando la porra.'); }
-    finally { setSubmitting(false); }
+    try {
+      await submitUserPrediction({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        payload: { groupPredictions, knockoutPredictions: roundOf32, champion: null, calculatedSnapshot: { standings, roundOf32 } },
+      });
+      setSubmitted(true);
+      setMsg('Porra enviada correctamente');
+    } catch (error: any) {
+      setMsg(error.message || 'Error enviando la porra');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -197,8 +243,9 @@ export default function PorraPage() {
         <p className="mt-2 text-wc-muted">{MICROCOPY.predictionsStart}</p>
 
         <div className="wc-card mt-6 p-4">
-          <label className="mb-1 block text-sm">Correo de registro</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} className="wc-input" type="email" placeholder="tuemail@empresa.com" />
+          {!user && <p className="text-wc-accentSoft">Debes iniciar sesión para guardar tu porra.</p>}
+          {user && <p className="text-sm text-wc-muted">Usuario: {user.email}</p>}
+          {loadingPrediction && <p className="text-sm text-wc-muted">Cargando porra guardada...</p>}
         </div>
 
         <section className="wc-card mt-8 p-6">
@@ -227,8 +274,8 @@ export default function PorraPage() {
         <section className="wc-card mt-8 p-6">
           <h2 className="mb-4 text-2xl font-bold">Acciones clave</h2>
           <div className="flex flex-wrap gap-3">
-            <button type="button" disabled={submitting || closed} onClick={handleSaveDraft} className="wc-btn-secondary">Guardar borrador</button>
-            <button type="button" disabled={submitting || closed || !groupStageComplete} onClick={handleSubmit} className="wc-btn-primary">Enviar porra</button>
+            <button type="button" disabled={submitting || closed} onClick={handleSaveDraft} className="wc-btn-secondary">Guardar mi porra</button>
+            <button type="button" disabled={submitting || closed || !groupStageComplete} onClick={handleSubmit} className="wc-btn-primary">Enviar porra definitiva</button>
           </div>
           {!groupStageComplete && <p className="mt-3 text-sm text-wc-accentSoft">{MICROCOPY.completeGroups}</p>}
           {submitted && <p className="mt-3 text-sm font-medium text-wc-gold">{MICROCOPY.champion}</p>}
