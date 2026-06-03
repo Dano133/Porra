@@ -4,7 +4,7 @@ import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import type { GroupPredictionsMap } from '@/lib/world-cup/standings';
 
-type PredictionStatus = 'draft' | 'submitted' | 'locked';
+export type PredictionStatus = 'draft' | 'submitted' | 'locked';
 
 type PredictionPayload = {
   groupPredictions: GroupPredictionsMap;
