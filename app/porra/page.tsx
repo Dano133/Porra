@@ -27,6 +27,17 @@ import {
 
 const GROUP_KEYS = Object.keys(WORLD_CUP_2026_SOURCE_OF_TRUTH.groups) as GroupKey[];
 
+const STAGES = [
+  { id: 'groups', label: 'Fase de grupos', shortLabel: 'Grupos' },
+  { id: 'round32', label: 'Dieciseisavos', shortLabel: '1/16' },
+  { id: 'round16', label: 'Octavos', shortLabel: '1/8' },
+  { id: 'quarterFinals', label: 'Cuartos', shortLabel: '1/4' },
+  { id: 'semiFinals', label: 'Semifinales', shortLabel: '1/2' },
+  { id: 'final', label: 'Final', shortLabel: 'Final' },
+] as const;
+
+type StageId = (typeof STAGES)[number]['id'];
+
 function isGroupStageComplete(predictions: GroupPredictionsMap) {
   return WORLD_CUP_2026_SOURCE_OF_TRUTH.groupStageMatches.every((m) => {
     const p = predictions[m.id];
@@ -115,6 +126,72 @@ function GroupSection(props: {
   );
 }
 
+
+function StageSelector({ activeStage, onChange }: { activeStage: StageId; onChange: (stage: StageId) => void }) {
+  return (
+    <section className="wc-card mt-8 overflow-hidden p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-wc-gold">Navegación por fases</p>
+          <h2 className="mt-1 text-xl font-bold">Elige qué parte del Mundial quieres revisar</h2>
+        </div>
+        <span className="wc-badge">Fase activa: {STAGES.find((stage) => stage.id === activeStage)?.label}</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6" role="tablist" aria-label="Fases del Mundial">
+        {STAGES.map((stage) => {
+          const isActive = stage.id === activeStage;
+          return (
+            <button
+              key={stage.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => onChange(stage.id)}
+              className={`group rounded-2xl border px-4 py-3 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-wc-primary/60 ${
+                isActive
+                  ? 'border-wc-gold bg-wc-gold/15 shadow-lg shadow-wc-gold/10'
+                  : 'border-wc-border bg-wc-background/75 hover:border-wc-primary/70 hover:bg-wc-primary/10'
+              }`}
+            >
+              <span className={`block text-lg font-black ${isActive ? 'text-wc-gold' : 'text-wc-primary group-hover:text-wc-text'}`}>
+                {stage.shortLabel}
+              </span>
+              <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-wc-muted">
+                {stage.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function StagePlaceholder({ title, badge, completePreviousStage }: { title: string; badge: string; completePreviousStage: boolean }) {
+  return (
+    <section className="wc-card mt-8 p-6">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold">{title}</h2>
+          <p className="mt-1 text-sm text-wc-muted">
+            Estructura visual preparada para extender la predicción de eliminatorias sin alterar la fase de grupos.
+          </p>
+        </div>
+        <span className="wc-badge">{badge}</span>
+      </div>
+      <div className="rounded-2xl border border-dashed border-wc-border bg-wc-background/55 p-6 text-center">
+        <p className="text-lg font-semibold text-wc-gold">
+          {completePreviousStage ? 'Disponible próximamente' : 'Pendiente de completar fase anterior'}
+        </p>
+        <p className="mx-auto mt-2 max-w-2xl text-sm text-wc-muted">
+          Por ahora no se inventa lógica de ganadores para esta ronda. Cuando exista la predicción completa de eliminatorias,
+          este bloque mostrará sus cruces y selecciones manteniendo el bloqueo de edición si la porra está enviada o bloqueada.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function BracketRoundColumn({ title, matches }: { title: string; matches: Array<{ id: string; homeTeam: string | null; awayTeam: string | null; homeSlot: string; awaySlot: string; }> }) {
   return (
     <div className="space-y-2">
@@ -165,6 +242,7 @@ export default function PorraPage() {
   const [submitted, setSubmitted] = useState(false);
   const [predictionStatus, setPredictionStatus] = useState<PredictionStatus | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [activeStage, setActiveStage] = useState<StageId>('groups');
   const closed = predictionStatus === 'submitted' || predictionStatus === 'locked';
 
   useEffect(() => {
@@ -340,28 +418,57 @@ export default function PorraPage() {
           {loadingPrediction && <p className="text-sm text-wc-muted">Cargando porra guardada...</p>}
         </div>
 
-        <section className="wc-card mt-8 p-6">
-          <h2 className="mb-6 text-2xl font-bold">Fase de grupos</h2>
-          <div className="space-y-8">
-            {GROUP_KEYS.map((groupKey) => (
-              <GroupSection
-                key={groupKey}
-                groupKey={groupKey}
-                matches={WORLD_CUP_2026_SOURCE_OF_TRUTH.groupStageMatches.filter((m) => m.group === groupKey)}
-                standings={standings[groupKey]}
-                predictions={groupPredictions}
-                onSetScore={setScore}
-                closed={closed}
-              />
-            ))}
-          </div>
-        </section>
+        <StageSelector activeStage={activeStage} onChange={setActiveStage} />
 
-        <section className="wc-card mt-8 p-6">
-          <h2 className="mb-1 text-2xl font-bold">Cuadro de eliminatorias</h2>
-          <p className="mb-4 text-sm text-wc-muted">Empieza la fase de eliminación directa.</p>
-          <KnockoutBracket leftPath={leftPath} rightPath={rightPath} />
-        </section>
+        {activeStage === 'groups' && (
+          <section className="wc-card mt-8 p-6" role="tabpanel">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold">Fase de grupos</h2>
+                <p className="mt-1 text-sm text-wc-muted">Introduce resultados y revisa la clasificación automática grupo a grupo.</p>
+              </div>
+              <span className="wc-badge">Clasificación automática</span>
+            </div>
+            <div className="space-y-8">
+              {GROUP_KEYS.map((groupKey) => (
+                <GroupSection
+                  key={groupKey}
+                  groupKey={groupKey}
+                  matches={WORLD_CUP_2026_SOURCE_OF_TRUTH.groupStageMatches.filter((m) => m.group === groupKey)}
+                  standings={standings[groupKey]}
+                  predictions={groupPredictions}
+                  onSetScore={setScore}
+                  closed={closed}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activeStage === 'round32' && (
+          <section className="wc-card mt-8 p-6" role="tabpanel">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold">Dieciseisavos · 1/16</h2>
+                <p className="mt-1 text-sm text-wc-muted">
+                  Primer cuadro generado desde la clasificación de grupos actual. La edición de cruces avanzados queda preparada para una siguiente iteración.
+                </p>
+              </div>
+              <span className="wc-badge">R32</span>
+            </div>
+            {!groupStageComplete && (
+              <p className="mb-4 rounded-xl border border-wc-gold/40 bg-wc-gold/10 px-4 py-3 text-sm text-wc-gold">
+                Pendiente de completar fase anterior: rellena todos los resultados de grupos para consolidar estos cruces.
+              </p>
+            )}
+            <KnockoutBracket leftPath={leftPath} rightPath={rightPath} />
+          </section>
+        )}
+
+        {activeStage === 'round16' && <StagePlaceholder title="Octavos · 1/8" badge="R16" completePreviousStage={groupStageComplete} />}
+        {activeStage === 'quarterFinals' && <StagePlaceholder title="Cuartos · 1/4" badge="Cuartos" completePreviousStage={groupStageComplete} />}
+        {activeStage === 'semiFinals' && <StagePlaceholder title="Semifinales · 1/2" badge="Semifinales" completePreviousStage={groupStageComplete} />}
+        {activeStage === 'final' && <StagePlaceholder title="Final y campeón" badge="Campeón" completePreviousStage={groupStageComplete} />}
 
         <section className="wc-card mt-8 p-6">
           <h2 className="mb-4 text-2xl font-bold">Acciones clave</h2>
