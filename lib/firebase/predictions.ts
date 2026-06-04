@@ -45,6 +45,11 @@ export async function getUserPrediction(uid: string) {
 export async function saveUserPredictionDraft({ uid, email, displayName, payload }: SaveArgs) {
   const predictionRef = doc(db, 'predictions', uid);
   const existingPrediction = await getDoc(predictionRef);
+  const existingData = existingPrediction.exists() ? (existingPrediction.data() as UserPredictionDocument) : null;
+
+  if (existingData?.status === 'submitted' || existingData?.status === 'locked') {
+    throw new Error('Esta porra ya fue enviada y no se puede modificar.');
+  }
 
   await setDoc(
     predictionRef,
@@ -59,9 +64,7 @@ export async function saveUserPredictionDraft({ uid, email, displayName, payload
       champion: payload.champion ?? null,
       calculatedSnapshot: payload.calculatedSnapshot ?? null,
       version: 1,
-      createdAt: existingPrediction.exists()
-        ? existingPrediction.data().createdAt ?? serverTimestamp()
-        : serverTimestamp(),
+      createdAt: existingData?.createdAt ?? serverTimestamp(),
       updatedAt: serverTimestamp(),
       submittedAt: null,
       lockedAt: null,
@@ -73,6 +76,11 @@ export async function saveUserPredictionDraft({ uid, email, displayName, payload
 export async function submitUserPrediction({ uid, email, displayName, payload }: SaveArgs) {
   const predictionRef = doc(db, 'predictions', uid);
   const existingPrediction = await getDoc(predictionRef);
+  const existingData = existingPrediction.exists() ? (existingPrediction.data() as UserPredictionDocument) : null;
+
+  if (existingData?.status === 'submitted' || existingData?.status === 'locked') {
+    throw new Error('Esta porra ya fue enviada y no se puede volver a enviar.');
+  }
 
   await setDoc(
     predictionRef,
@@ -87,9 +95,7 @@ export async function submitUserPrediction({ uid, email, displayName, payload }:
       champion: payload.champion ?? null,
       calculatedSnapshot: payload.calculatedSnapshot ?? null,
       version: 1,
-      createdAt: existingPrediction.exists()
-        ? existingPrediction.data().createdAt ?? serverTimestamp()
-        : serverTimestamp(),
+      createdAt: existingData?.createdAt ?? serverTimestamp(),
       updatedAt: serverTimestamp(),
       submittedAt: serverTimestamp(),
       lockedAt: null,
