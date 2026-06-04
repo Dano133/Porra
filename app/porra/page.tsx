@@ -165,7 +165,7 @@ export default function PorraPage() {
   const [submitted, setSubmitted] = useState(false);
   const [predictionStatus, setPredictionStatus] = useState<PredictionStatus | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const closed = false;
+  const closed = predictionStatus === 'submitted' || predictionStatus === 'locked';
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
@@ -190,6 +190,9 @@ export default function PorraPage() {
         if (data?.status) {
           setPredictionStatus(data.status);
           setSubmitted(data.status === 'submitted');
+          if (data.status === 'submitted' || data.status === 'locked') {
+            setMsg('Tu porra ya fue enviada y no se puede modificar.');
+          }
         } else {
           setPredictionStatus(null);
           setSubmitted(false);
@@ -211,6 +214,11 @@ export default function PorraPage() {
   const rightPath = roundOf32.slice(8);
 
   function setScore(matchId: string, side: 'homeScore' | 'awayScore', rawValue: string) {
+    if (closed) {
+      setMsg('Tu porra ya fue enviada y no se puede modificar.');
+      return;
+    }
+
     const value = rawValue === '' ? null : Number(rawValue);
     setGroupPredictions((prev) => ({
       ...prev,
@@ -225,6 +233,11 @@ export default function PorraPage() {
   async function handleSaveDraft() {
     if (!currentUser) {
       setMsg('Debes iniciar sesión para guardar tu porra.');
+      return;
+    }
+
+    if (predictionStatus === 'submitted' || predictionStatus === 'locked') {
+      setMsg('Tu porra ya fue enviada y no se puede modificar.');
       return;
     }
 
@@ -262,6 +275,11 @@ export default function PorraPage() {
       return;
     }
 
+    if (predictionStatus === 'submitted' || predictionStatus === 'locked') {
+      setMsg('Tu porra ya fue enviada y no se puede volver a enviar.');
+      return;
+    }
+
     if (!isGroupStageComplete(groupPredictions)) {
       setMsg('Completa todos los resultados antes de enviar tu porra.');
       return;
@@ -283,9 +301,9 @@ export default function PorraPage() {
           },
         },
       });
-      setSubmitted(true);
       setPredictionStatus('submitted');
-      setMsg('Porra enviada correctamente.');
+      setSubmitted(true);
+      setMsg('Porra enviada correctamente. Ya no se puede modificar.');
     } catch (error) {
       console.error('Error submitting prediction', error);
       setMsg(error instanceof Error ? error.message : 'Error enviando la porra.');
@@ -318,6 +336,7 @@ export default function PorraPage() {
           )}
           {currentUser && <p className="text-sm text-wc-muted">Usuario: {currentUser.email}</p>}
           {predictionStatus && <p className="text-sm text-wc-muted">Estado: {predictionStatus === 'submitted' ? 'enviada' : predictionStatus === 'draft' ? 'borrador' : 'bloqueada'}</p>}
+          {closed && <p className="text-sm font-medium text-wc-gold">Tu porra ya fue enviada y no se puede modificar.</p>}
           {loadingPrediction && <p className="text-sm text-wc-muted">Cargando porra guardada...</p>}
         </div>
 
