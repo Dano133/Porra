@@ -1,11 +1,20 @@
-'use client';
-import { useEffect, useMemo, useState } from 'react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { MICROCOPY } from '@/lib/microcopy';
-import { getDb } from '@/lib/firebase-client';
-import { collection, doc, getDoc, getDocs, orderBy, query, where, limit } from 'firebase/firestore';
-import type { Score, Settings, RankingSnapshot } from '@/lib/types';
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import { MICROCOPY } from "@/lib/microcopy";
+import { getDb } from "@/lib/firebase-client";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  where,
+  limit,
+} from "firebase/firestore";
+import type { Score, Settings, RankingSnapshot } from "@/lib/types";
 
 interface Row {
   rank: number;
@@ -18,40 +27,47 @@ interface Row {
 export default function RankingPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
-  const [filter, setFilter] = useState('');
+  const [filter, setFilter] = useState("");
   const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       const db = getDb();
-      const sSnap = await getDoc(doc(db, 'settings', 'global'));
+      const sSnap = await getDoc(doc(db, "settings", "global"));
       const s = sSnap.exists() ? (sSnap.data() as Settings) : null;
-      if (!s) { setLoading(false); return; }
+      if (!s) {
+        setLoading(false);
+        return;
+      }
       setEnabled(s.publicLeaderboardEnabled);
-      if (!s.publicLeaderboardEnabled) { setLoading(false); return; }
+      if (!s.publicLeaderboardEnabled) {
+        setLoading(false);
+        return;
+      }
 
       const scoresQ = query(
-        collection(db, 'scores'),
-        where('tournamentId', '==', s.currentTournamentId),
-        orderBy('totalPoints', 'desc'),
+        collection(db, "scores"),
+        where("tournamentId", "==", s.currentTournamentId),
+        orderBy("totalPoints", "desc"),
         limit(500),
       );
       const scoresSnap = await getDocs(scoresQ);
-      const scores = scoresSnap.docs.map(d => d.data() as Score);
+      const scores = scoresSnap.docs.map((d) => d.data() as Score);
 
       // Última fecha de snapshot para deltas (lectura pública)
       const snapsQ = query(
-        collection(db, 'rankingSnapshots'),
-        orderBy('snapshotDate', 'desc'),
+        collection(db, "rankingSnapshots"),
+        orderBy("snapshotDate", "desc"),
         limit(500),
       );
       const snapsSnap = await getDocs(snapsQ);
       const latestDate = snapsSnap.docs[0]?.data().snapshotDate;
       const deltaByParticipant = new Map<string, number>();
-      snapsSnap.docs.forEach(d => {
+      snapsSnap.docs.forEach((d) => {
         const v = d.data() as RankingSnapshot;
-        if (v.snapshotDate === latestDate) deltaByParticipant.set(v.participantId, v.delta);
+        if (v.snapshotDate === latestDate)
+          deltaByParticipant.set(v.participantId, v.delta);
       });
 
       // Nombres: las reglas no permiten leer participants públicamente,
@@ -60,7 +76,9 @@ export default function RankingPage() {
       const built: Row[] = scores.map((sc, i) => ({
         rank: i + 1,
         participantId: sc.participantId,
-        fullName: (sc as any).fullName || `Participante ${sc.participantId.slice(0, 6)}`,
+        fullName:
+          (sc as any).fullName ||
+          `Participante ${sc.participantId.slice(0, 6)}`,
         totalPoints: sc.totalPoints,
         delta: deltaByParticipant.get(sc.participantId) || 0,
       }));
@@ -71,28 +89,42 @@ export default function RankingPage() {
   }, []);
 
   const filtered = useMemo(
-    () => rows.filter(r => r.fullName.toLowerCase().includes(filter.toLowerCase())),
+    () =>
+      rows.filter((r) =>
+        r.fullName.toLowerCase().includes(filter.toLowerCase()),
+      ),
     [rows, filter],
   );
 
   if (!enabled) {
-    return (<><Header /><main className="mx-auto max-w-4xl px-4 py-10"><div className="wc-card p-8 text-center text-wc-muted">El ranking público está deshabilitado por ahora.</div></main><Footer /></>);
+    return (
+      <>
+        <Header />
+        <main className="mx-auto max-w-4xl px-3 py-6 sm:px-4 sm:py-10">
+          <div className="wc-card p-8 text-center text-wc-muted">
+            El ranking público está deshabilitado por ahora.
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
   }
 
   return (
     <>
       <Header />
-      <main className="mx-auto max-w-4xl px-4 py-10">
+      <main className="mx-auto max-w-4xl px-3 py-6 sm:px-4 sm:py-10">
         <h1 className="text-3xl font-bold">{MICROCOPY.ranking}</h1>
         {updatedAt && (
           <p className="text-sm text-wc-muted mt-1">
-            Última actualización: {new Date(updatedAt).toLocaleString('es-ES')}
+            Última actualización: {new Date(updatedAt).toLocaleString("es-ES")}
           </p>
         )}
 
         <input
           placeholder="Buscar por nombre…"
-          value={filter} onChange={e => setFilter(e.target.value)}
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
           className="mt-4 w-full wc-input px-3 py-2"
         />
 
@@ -100,14 +132,23 @@ export default function RankingPage() {
           <p className="mt-6">Cargando…</p>
         ) : (
           <>
-            <h2 className="mt-6 font-bold text-wc-gold">Top 10 · Zona dorada</h2>
+            <h2 className="mt-6 font-bold text-wc-gold">
+              Top 10 · Zona dorada
+            </h2>
             <ol className="mt-2 wc-card divide-y divide-wc-border">
-              {filtered.slice(0, 10).map(r => <RankRow key={r.participantId} row={r} highlight />)}
+              {filtered.slice(0, 10).map((r) => (
+                <RankRow key={r.participantId} row={r} highlight />
+              ))}
             </ol>
 
-            <h2 className="mt-6 font-bold">Tabla completa</h2><p className="text-sm text-wc-muted">Cada punto vale, cada jornada pesa.</p>
+            <h2 className="mt-6 font-bold">Tabla completa</h2>
+            <p className="text-sm text-wc-muted">
+              Cada punto vale, cada jornada pesa.
+            </p>
             <ol className="mt-2 wc-card divide-y divide-wc-border">
-              {filtered.map(r => <RankRow key={r.participantId} row={r} />)}
+              {filtered.map((r) => (
+                <RankRow key={r.participantId} row={r} />
+              ))}
             </ol>
           </>
         )}
@@ -118,14 +159,29 @@ export default function RankingPage() {
 }
 
 function RankRow({ row, highlight }: { row: Row; highlight?: boolean }) {
-  const podiumStyle = row.rank === 1 ? 'bg-wc-gold/20 border-l-2 border-wc-gold' : row.rank === 2 ? 'bg-slate-300/10 border-l-2 border-slate-300/60' : row.rank === 3 ? 'bg-amber-700/15 border-l-2 border-amber-600/70' : '';
+  const podiumStyle =
+    row.rank === 1
+      ? "bg-wc-gold/20 border-l-2 border-wc-gold"
+      : row.rank === 2
+        ? "bg-slate-300/10 border-l-2 border-slate-300/60"
+        : row.rank === 3
+          ? "bg-amber-700/15 border-l-2 border-amber-600/70"
+          : "";
   return (
-    <li className={`flex items-center gap-3 px-4 py-2 ${highlight ? podiumStyle : ''}`}>
+    <li
+      className={`flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-2 ${highlight ? podiumStyle : ""}`}
+    >
       <span className="w-8 text-right font-bold text-wc-muted">{row.rank}</span>
-      <span className="flex-1">{row.fullName}</span>
-      <span className="font-semibold">{row.totalPoints} pts</span>
-      <span className={`w-12 text-right text-xs ${row.delta > 0 ? 'text-wc-primary' : row.delta < 0 ? 'text-wc-accentSoft' : 'text-wc-muted/60'}`}>
-        {row.delta > 0 ? `▲${row.delta}` : row.delta < 0 ? `▼${Math.abs(row.delta)}` : '–'}
+      <span className="min-w-0 flex-1 truncate">{row.fullName}</span>
+      <span className="shrink-0 font-semibold">{row.totalPoints} pts</span>
+      <span
+        className={`w-12 text-right text-xs ${row.delta > 0 ? "text-wc-primary" : row.delta < 0 ? "text-wc-accentSoft" : "text-wc-muted/60"}`}
+      >
+        {row.delta > 0
+          ? `▲${row.delta}`
+          : row.delta < 0
+            ? `▼${Math.abs(row.delta)}`
+            : "–"}
       </span>
     </li>
   );

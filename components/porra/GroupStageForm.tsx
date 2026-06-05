@@ -20,7 +20,7 @@ export default function GroupStageForm({ standings, onChange }: Props) {
   const handleSelectChange = (
     group: GroupKey,
     field: "first" | "second" | "third" | "fourth",
-    value: string
+    value: string,
   ) => {
     onChange({
       ...standings,
@@ -32,31 +32,43 @@ export default function GroupStageForm({ standings, onChange }: Props) {
   };
 
   return (
-    <section className="wc-card p-6">
+    <section className="wc-card p-4 sm:p-6">
       <h2 className="mb-6 text-2xl font-bold">Fase de grupos</h2>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
         {(Object.keys(WORLD_CUP_GROUPS) as GroupKey[]).map((groupKey) => {
           const teams = WORLD_CUP_GROUPS[groupKey];
 
           return (
-            <div key={groupKey} className="rounded-xl border border-wc-border bg-wc-background/40 p-4">
+            <div
+              key={groupKey}
+              className="rounded-xl border border-wc-border bg-wc-background/40 p-4"
+            >
               <h3 className="mb-4 text-lg font-semibold">Grupo {groupKey}</h3>
 
               <div className="space-y-3">
                 {POSITION_CONFIG.map((position) => (
                   <div key={position.key}>
-                    <label className="mb-1 block text-sm font-medium">{position.label}</label>
+                    <label className="mb-1 block text-sm font-medium">
+                      {position.label}
+                    </label>
                     <select
                       className="wc-select"
                       value={standings[groupKey][position.key]}
                       onChange={(e) =>
-                        handleSelectChange(groupKey, position.key, e.target.value)
+                        handleSelectChange(
+                          groupKey,
+                          position.key,
+                          e.target.value,
+                        )
                       }
                     >
                       <option value="">Selecciona un equipo</option>
                       {teams.map((team) => (
-                        <option key={formatTeamWithFlag(team)} value={formatTeamWithFlag(team)}>
+                        <option
+                          key={formatTeamWithFlag(team)}
+                          value={formatTeamWithFlag(team)}
+                        >
                           {formatTeamWithFlag(team)}
                         </option>
                       ))}
