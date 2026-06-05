@@ -9,7 +9,7 @@ interface Props {
   onMatchUpdate: (
     stage: keyof GeneratedBracket,
     matchId: string,
-    payload: { homeScore: number; awayScore: number; winner: string }
+    payload: { homeScore: number; awayScore: number; winner: string },
   ) => void;
 }
 
@@ -29,13 +29,25 @@ function MatchCard({
     <div className="rounded-lg border border-wc-border bg-wc-background/60 p-4">
       <div className="mb-2 text-sm font-semibold text-wc-muted">{match.id}</div>
       <div className="space-y-2">
-        <div className="rounded border border-wc-border bg-wc-background px-3 py-2"><TeamLabel team={match.homeTeam} fallbackLabel="Pendiente" size="sm" /></div>
-        <div className="rounded border border-wc-border bg-wc-background px-3 py-2"><TeamLabel team={match.awayTeam} fallbackLabel="Pendiente" size="sm" /></div>
+        <div className="rounded border border-wc-border bg-wc-background px-3 py-2">
+          <TeamLabel
+            team={match.homeTeam}
+            fallbackLabel="Pendiente"
+            size="sm"
+          />
+        </div>
+        <div className="rounded border border-wc-border bg-wc-background px-3 py-2">
+          <TeamLabel
+            team={match.awayTeam}
+            fallbackLabel="Pendiente"
+            size="sm"
+          />
+        </div>
       </div>
 
       {match.homeTeam && match.awayTeam && (
         <div className="mt-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             <input
               type="number"
               defaultValue={homeScore}
@@ -58,17 +70,27 @@ function MatchCard({
             id={`${match.id}-winner`}
           >
             <option value="">Selecciona ganador</option>
-            <option value={match.homeTeam}>{formatTeamWithFlag(match.homeTeam)}</option>
-            <option value={match.awayTeam}>{formatTeamWithFlag(match.awayTeam)}</option>
+            <option value={match.homeTeam}>
+              {formatTeamWithFlag(match.homeTeam)}
+            </option>
+            <option value={match.awayTeam}>
+              {formatTeamWithFlag(match.awayTeam)}
+            </option>
           </select>
 
           <button
             type="button"
-            className="wc-btn-gold"
+            className="wc-btn-gold w-full sm:w-auto"
             onClick={() => {
-              const homeInput = document.getElementById(`${match.id}-home`) as HTMLInputElement | null;
-              const awayInput = document.getElementById(`${match.id}-away`) as HTMLInputElement | null;
-              const winnerInput = document.getElementById(`${match.id}-winner`) as HTMLSelectElement | null;
+              const homeInput = document.getElementById(
+                `${match.id}-home`,
+              ) as HTMLInputElement | null;
+              const awayInput = document.getElementById(
+                `${match.id}-away`,
+              ) as HTMLInputElement | null;
+              const winnerInput = document.getElementById(
+                `${match.id}-winner`,
+              ) as HTMLSelectElement | null;
 
               const home = Number(homeInput?.value ?? 0);
               const away = Number(awayInput?.value ?? 0);
@@ -105,7 +127,7 @@ export default function KnockoutBracket({ bracket, onMatchUpdate }: Props) {
   ];
 
   return (
-    <section className="wc-card p-6">
+    <section className="wc-card p-4 sm:p-6">
       <h2 className="mb-6 text-2xl font-bold">Cuadro eliminatorio</h2>
 
       <div className="space-y-8">
