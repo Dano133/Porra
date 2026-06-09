@@ -19,7 +19,7 @@ export default function HomePage() {
             {MICROCOPY.home}
           </p>
           <p className="mt-4 text-wc-gold">
-            "La historia se escribe partido a partido."
+            «La historia se escribe partido a partido.»
           </p>
           <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
             <Link href="/registro" className="wc-btn-primary w-full sm:w-auto">
