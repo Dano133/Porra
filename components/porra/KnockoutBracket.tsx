@@ -1,6 +1,6 @@
 "use client";
 
-import { GeneratedBracket, MatchPrediction } from "@/lib/world-cup/types";
+import type { GeneratedBracket, MatchPrediction } from "@/lib/world-cup/types";
 import TeamLabel from "@/components/TeamLabel";
 import { formatTeamWithFlag } from "@/lib/world-cup/team-identity";
 
@@ -9,7 +9,7 @@ interface Props {
   onMatchUpdate: (
     stage: keyof GeneratedBracket,
     matchId: string,
-    payload: { homeScore: number; awayScore: number; winner: string },
+    payload: { homeScore: number; awayScore: number; winnerTeamId: string },
   ) => void;
 }
 
@@ -27,7 +27,9 @@ function MatchCard({
 
   return (
     <div className="rounded-lg border border-wc-border bg-wc-background/60 p-4">
-      <div className="mb-2 text-sm font-semibold text-wc-muted">{match.id}</div>
+      <div className="mb-2 text-sm font-semibold text-wc-muted">
+        {match.matchId}
+      </div>
       <div className="space-y-2">
         <div className="rounded border border-wc-border bg-wc-background px-3 py-2">
           <TeamLabel
@@ -53,21 +55,21 @@ function MatchCard({
               defaultValue={homeScore}
               placeholder="Goles local"
               className="wc-input"
-              id={`${match.id}-home`}
+              id={`${match.matchId}-home`}
             />
             <input
               type="number"
               defaultValue={awayScore}
               placeholder="Goles visitante"
               className="wc-input"
-              id={`${match.id}-away`}
+              id={`${match.matchId}-away`}
             />
           </div>
 
           <select
-            defaultValue={match.winner ?? ""}
+            defaultValue={match.winnerTeamId ?? ""}
             className="w-full wc-input"
-            id={`${match.id}-winner`}
+            id={`${match.matchId}-winner`}
           >
             <option value="">Selecciona ganador</option>
             <option value={match.homeTeam}>
@@ -83,13 +85,13 @@ function MatchCard({
             className="wc-btn-gold w-full sm:w-auto"
             onClick={() => {
               const homeInput = document.getElementById(
-                `${match.id}-home`,
+                `${match.matchId}-home`,
               ) as HTMLInputElement | null;
               const awayInput = document.getElementById(
-                `${match.id}-away`,
+                `${match.matchId}-away`,
               ) as HTMLInputElement | null;
               const winnerInput = document.getElementById(
-                `${match.id}-winner`,
+                `${match.matchId}-winner`,
               ) as HTMLSelectElement | null;
 
               const home = Number(homeInput?.value ?? 0);
@@ -101,10 +103,10 @@ function MatchCard({
                 return;
               }
 
-              onSave(stage, match.id, {
+              onSave(stage, match.matchId, {
                 homeScore: home,
                 awayScore: away,
-                winner,
+                winnerTeamId: winner,
               });
             }}
           >
@@ -120,9 +122,8 @@ export default function KnockoutBracket({ bracket, onMatchUpdate }: Props) {
   const sections: Array<{ title: string; key: keyof GeneratedBracket }> = [
     { title: "Ronda inicial", key: "round32" },
     { title: "Octavos", key: "round16" },
-    { title: "Cuartos", key: "quarterfinals" },
-    { title: "Semifinales", key: "semifinals" },
-    { title: "3º y 4º puesto", key: "thirdPlace" },
+    { title: "Cuartos", key: "quarterFinals" },
+    { title: "Semifinales", key: "semiFinals" },
     { title: "Final", key: "final" },
   ];
 
@@ -141,7 +142,7 @@ export default function KnockoutBracket({ bracket, onMatchUpdate }: Props) {
               <div className="grid gap-4 md:grid-cols-2">
                 {matches.map((match) => (
                   <MatchCard
-                    key={match.id}
+                    key={match.matchId}
                     match={match}
                     stage={section.key}
                     onSave={onMatchUpdate}
