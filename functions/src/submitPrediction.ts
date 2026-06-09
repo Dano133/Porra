@@ -16,6 +16,7 @@ const KoPredSchema = z.object({
   awayTeam: z.string(),
   homeScore: z.number().int().min(0).max(20),
   awayScore: z.number().int().min(0).max(20),
+  winnerTeamId: z.string().max(60).optional(),
 });
 const Schema = z.object({
   email: z.string().trim().toLowerCase().email(),
