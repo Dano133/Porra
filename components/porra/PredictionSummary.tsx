@@ -27,7 +27,10 @@ export default function PredictionSummary({
       <div className="mb-6 rounded-lg bg-wc-background/60 p-4">
         <p className="text-sm text-wc-muted">Campeón predicho</p>
         <div className="text-xl font-semibold">
-          <TeamLabel team={bracket.champion} fallbackLabel="Aún sin definir" />
+          <TeamLabel
+            team={bracket.final[0]?.winnerTeamId}
+            fallbackLabel="Aún sin definir"
+          />
         </div>
       </div>
 

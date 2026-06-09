@@ -16,6 +16,16 @@ import {
   type GroupPredictionsMap,
 } from "@/lib/world-cup/standings";
 import { resolveRoundOf32 } from "@/lib/world-cup/bracket-resolver";
+import {
+  buildKnockoutBracket,
+  flattenKnockoutBracket,
+  getChampion,
+  KNOCKOUT_ROUNDS,
+  toScoringKnockoutPredictions,
+  type KnockoutMatchView,
+  type KnockoutPredictionsMap,
+  type KnockoutRoundId,
+} from "@/lib/world-cup/knockout";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
 import {
@@ -31,11 +41,11 @@ const GROUP_KEYS = Object.keys(
 
 const STAGES = [
   { id: "groups", label: "Fase de grupos", shortLabel: "Grupos" },
-  { id: "round32", label: "Dieciseisavos", shortLabel: "1/16" },
-  { id: "round16", label: "Octavos", shortLabel: "1/8" },
-  { id: "quarterFinals", label: "Cuartos", shortLabel: "1/4" },
-  { id: "semiFinals", label: "Semifinales", shortLabel: "1/2" },
-  { id: "final", label: "Final", shortLabel: "Final" },
+  ...KNOCKOUT_ROUNDS.map((round) => ({
+    id: round.id,
+    label: round.label,
+    shortLabel: round.shortLabel,
+  })),
 ] as const;
 
 type StageId = (typeof STAGES)[number]["id"];
@@ -252,132 +262,194 @@ function StageSelector({
   );
 }
 
-function StagePlaceholder({
-  title,
-  badge,
-  completePreviousStage,
+const ROUND_COPY: Record<KnockoutRoundId, { title: string; badge: string }> = {
+  round32: { title: "Dieciseisavos · 1/16", badge: "R32" },
+  round16: { title: "Octavos · 1/8", badge: "R16" },
+  quarterFinals: { title: "Cuartos · 1/4", badge: "Cuartos" },
+  semiFinals: { title: "Semifinales · 1/2", badge: "Semifinales" },
+  final: { title: "Final y campeón", badge: "Campeón" },
+};
+
+const VALIDATION_ROUND_LABELS: Record<KnockoutRoundId, string> = {
+  round32: "dieciseisavos",
+  round16: "octavos",
+  quarterFinals: "cuartos",
+  semiFinals: "semifinales",
+  final: "final",
+};
+
+function KnockoutMatchCard({
+  match,
+  closed,
+  onSetScore,
+  onSetWinner,
 }: {
-  title: string;
-  badge: string;
-  completePreviousStage: boolean;
+  match: KnockoutMatchView;
+  closed: boolean;
+  onSetScore: (
+    matchId: string,
+    side: "homeScore" | "awayScore",
+    value: string,
+  ) => void;
+  onSetWinner: (matchId: string, winnerTeamId: string) => void;
 }) {
+  const isReady = Boolean(match.homeTeam && match.awayTeam);
+  const hasScores = match.homeScore !== null && match.awayScore !== null;
+  const isDraw = hasScores && match.homeScore === match.awayScore;
+  const winnerLabel = match.winnerTeamId
+    ? "Clasifica"
+    : isReady
+      ? "Pendiente"
+      : "Esperando clasificados";
+
   return (
-    <section className="wc-card mt-8 p-4 sm:p-6">
+    <article className="rounded-xl border border-wc-border bg-wc-background/85 p-3 sm:p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-wc-muted">
+        <span className="wc-badge">{match.matchId}</span>
+        <span>{winnerLabel}</span>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr),56px,20px,56px,minmax(0,1fr)] sm:items-center">
+        <div className="grid grid-cols-[minmax(0,1fr),64px] items-center gap-2 sm:contents">
+          <TeamLabel
+            team={match.homeTeam}
+            fallbackLabel={match.homeSlot}
+            size="sm"
+          />
+          <input
+            type="number"
+            min={0}
+            value={match.homeScore ?? ""}
+            onChange={(e) =>
+              onSetScore(match.matchId, "homeScore", e.target.value)
+            }
+            className="wc-input px-2 py-1 text-center"
+            disabled={closed || !isReady}
+          />
+        </div>
+        <div className="hidden text-center text-wc-muted sm:block">-</div>
+        <div className="grid grid-cols-[minmax(0,1fr),64px] items-center gap-2 sm:contents">
+          <input
+            type="number"
+            min={0}
+            value={match.awayScore ?? ""}
+            onChange={(e) =>
+              onSetScore(match.matchId, "awayScore", e.target.value)
+            }
+            className="wc-input order-2 px-2 py-1 text-center sm:order-none"
+            disabled={closed || !isReady}
+          />
+          <TeamLabel
+            team={match.awayTeam}
+            fallbackLabel={match.awaySlot}
+            align="left"
+            size="sm"
+            className="order-1 sm:order-none sm:justify-end sm:text-right"
+          />
+        </div>
+      </div>
+
+      {isReady && (
+        <div className="mt-3 rounded-lg border border-wc-border/70 bg-wc-background/55 p-3 text-sm">
+          {isDraw ? (
+            <label className="block">
+              <span className="mb-1 block font-medium text-wc-gold">
+                Empate: selecciona el clasificado por penaltis
+              </span>
+              <select
+                className="wc-select"
+                value={match.winnerTeamId ?? ""}
+                onChange={(e) => onSetWinner(match.matchId, e.target.value)}
+                disabled={closed}
+              >
+                <option value="">Clasifica / ganador por penaltis</option>
+                <option value={match.homeTeam ?? ""}>{match.homeTeam}</option>
+                <option value={match.awayTeam ?? ""}>{match.awayTeam}</option>
+              </select>
+            </label>
+          ) : match.winnerTeamId ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-wc-muted">Clasificado</span>
+              <TeamLabel team={match.winnerTeamId} size="sm" />
+            </div>
+          ) : (
+            <span className="text-wc-muted">
+              Introduce ambos resultados para calcular el clasificado.
+            </span>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function KnockoutRoundSection({
+  round,
+  matches,
+  groupStageComplete,
+  champion,
+  closed,
+  onSetScore,
+  onSetWinner,
+}: {
+  round: KnockoutRoundId;
+  matches: KnockoutMatchView[];
+  groupStageComplete: boolean;
+  champion: string | null;
+  closed: boolean;
+  onSetScore: (
+    matchId: string,
+    side: "homeScore" | "awayScore",
+    value: string,
+  ) => void;
+  onSetWinner: (matchId: string, winnerTeamId: string) => void;
+}) {
+  const copy = ROUND_COPY[round];
+  const isFinal = round === "final";
+
+  return (
+    <section className="wc-card mt-8 p-4 sm:p-6" role="tabpanel">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold sm:text-2xl">{title}</h2>
+          <h2 className="text-xl font-bold sm:text-2xl">{copy.title}</h2>
           <p className="mt-1 text-sm text-wc-muted">
-            Estructura visual preparada para extender la predicción de
-            eliminatorias sin alterar la fase de grupos.
+            Rellena el marcador. Si hay empate, elige el clasificado por
+            penaltis para que avance a la siguiente ronda.
           </p>
         </div>
-        <span className="wc-badge">{badge}</span>
+        <span className="wc-badge">{copy.badge}</span>
       </div>
-      <div className="rounded-2xl border border-dashed border-wc-border bg-wc-background/55 p-4 text-center sm:p-6">
-        <p className="text-lg font-semibold text-wc-gold">
-          {completePreviousStage
-            ? "Disponible próximamente"
-            : "Pendiente de completar fase anterior"}
+
+      {!groupStageComplete && (
+        <p className="mb-4 rounded-xl border border-wc-gold/40 bg-wc-gold/10 px-4 py-3 text-sm text-wc-gold">
+          Pendiente de completar fase anterior: rellena todos los resultados de
+          grupos para consolidar estos cruces.
         </p>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-wc-muted">
-          Por ahora no se inventa lógica de ganadores para esta ronda. Cuando
-          exista la predicción completa de eliminatorias, este bloque mostrará
-          sus cruces y selecciones manteniendo el bloqueo de edición si la porra
-          está enviada o bloqueada.
-        </p>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {matches.map((match) => (
+          <KnockoutMatchCard
+            key={match.matchId}
+            match={match}
+            closed={closed}
+            onSetScore={onSetScore}
+            onSetWinner={onSetWinner}
+          />
+        ))}
       </div>
+
+      {isFinal && (
+        <div className="mt-5 rounded-2xl border border-wc-gold/60 bg-wc-gold/10 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-wc-gold">
+            Campeón
+          </p>
+          <div className="mt-2 text-lg font-bold">
+            <TeamLabel team={champion} fallbackLabel="Aún sin definir" />
+          </div>
+        </div>
+      )}
     </section>
-  );
-}
-
-function BracketRoundColumn({
-  title,
-  matches,
-}: {
-  title: string;
-  matches: Array<{
-    id: string;
-    homeTeam: string | null;
-    awayTeam: string | null;
-    homeSlot: string;
-    awaySlot: string;
-  }>;
-}) {
-  return (
-    <div className="min-w-0 space-y-2">
-      <h4 className="text-xs font-semibold uppercase tracking-[0.16em] text-wc-secondary">
-        {title}
-      </h4>
-      {matches.map((m) => (
-        <article
-          key={m.id}
-          className="rounded-lg border border-wc-border bg-wc-background/85 p-3"
-        >
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="wc-badge">{m.id}</span>
-            <span className="text-xs text-wc-muted">
-              {m.homeTeam && m.awayTeam ? "Clasificado" : "Pendiente"}
-            </span>
-          </div>
-          <TeamLabel team={m.homeTeam} fallbackLabel={m.homeSlot} size="sm" />
-          <TeamLabel team={m.awayTeam} fallbackLabel={m.awaySlot} size="sm" />
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function KnockoutBracket({
-  leftPath,
-  rightPath,
-}: {
-  leftPath: Array<{
-    id: string;
-    homeTeam: string | null;
-    awayTeam: string | null;
-    homeSlot: string;
-    awaySlot: string;
-  }>;
-  rightPath: Array<{
-    id: string;
-    homeTeam: string | null;
-    awayTeam: string | null;
-    homeSlot: string;
-    awaySlot: string;
-  }>;
-}) {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-wc-border bg-wc-background/45 p-3 sm:p-4">
-      <div className="mb-4 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-        <h3 className="text-lg font-bold">Knockout Stage</h3>
-        <span className="wc-badge">Dos caminos hacia la final</span>
-      </div>
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr),260px,minmax(0,1fr)]">
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-wc-primary">
-            Camino 1 · R32
-          </h4>
-          <BracketRoundColumn title="Dieciseisavos" matches={leftPath} />
-        </div>
-        <div className="flex items-center justify-center rounded-2xl border border-wc-gold/60 bg-wc-gold/10 p-5 text-center">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-wc-gold">
-              Final
-            </p>
-            <p className="mt-2 text-lg font-bold">{MICROCOPY.champion}</p>
-            <p className="mt-2 text-xs text-wc-muted">
-              R32 → Octavos → Cuartos → Semifinales
-            </p>
-          </div>
-        </div>
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-wc-primary">
-            Camino 2 · R32
-          </h4>
-          <BracketRoundColumn title="Dieciseisavos" matches={rightPath} />
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -387,6 +459,8 @@ export default function PorraPage() {
   const [groupPredictions, setGroupPredictions] = useState<GroupPredictionsMap>(
     {},
   );
+  const [knockoutPredictions, setKnockoutPredictions] =
+    useState<KnockoutPredictionsMap>({});
   const [loadingPrediction, setLoadingPrediction] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -407,6 +481,8 @@ export default function PorraPage() {
         setLoadingPrediction(false);
         setSubmitted(false);
         setPredictionStatus(null);
+        setGroupPredictions({});
+        setKnockoutPredictions({});
         setMsg("Inicia sesión para guardar y enviar tu porra.");
         return;
       }
@@ -417,6 +493,18 @@ export default function PorraPage() {
         const data = await getUserPrediction(user.uid);
         if (data?.groupPredictions) {
           setGroupPredictions(data.groupPredictions);
+        } else {
+          setGroupPredictions({});
+        }
+        if (
+          data?.knockoutPredictions &&
+          !Array.isArray(data.knockoutPredictions)
+        ) {
+          setKnockoutPredictions(
+            data.knockoutPredictions as KnockoutPredictionsMap,
+          );
+        } else {
+          setKnockoutPredictions({});
         }
         if (data?.status) {
           setPredictionStatus(data.status);
@@ -450,8 +538,18 @@ export default function PorraPage() {
     () => isGroupStageComplete(groupPredictions),
     [groupPredictions],
   );
-  const leftPath = roundOf32.slice(0, 8);
-  const rightPath = roundOf32.slice(8);
+  const knockoutBracket = useMemo(
+    () => buildKnockoutBracket(roundOf32, knockoutPredictions),
+    [roundOf32, knockoutPredictions],
+  );
+  const champion = useMemo(
+    () => getChampion(knockoutBracket),
+    [knockoutBracket],
+  );
+  const persistedKnockoutPredictions = useMemo(
+    () => flattenKnockoutBracket(knockoutBracket),
+    [knockoutBracket],
+  );
 
   function setScore(
     matchId: string,
@@ -474,6 +572,113 @@ export default function PorraPage() {
     }));
   }
 
+
+  function setKnockoutScore(
+    matchId: string,
+    side: "homeScore" | "awayScore",
+    rawValue: string,
+  ) {
+    if (closed) {
+      setMsg("Tu porra ya fue enviada y no se puede modificar.");
+      return;
+    }
+
+    const currentMatch = persistedKnockoutPredictions[matchId];
+    if (!currentMatch?.homeTeam || !currentMatch.awayTeam) return;
+
+    const value = rawValue === "" ? null : Number(rawValue);
+    const nextHomeScore = side === "homeScore" ? value : currentMatch.homeScore;
+    const nextAwayScore = side === "awayScore" ? value : currentMatch.awayScore;
+    let winnerTeamId: string | null = null;
+
+    if (nextHomeScore !== null && nextAwayScore !== null) {
+      if (nextHomeScore > nextAwayScore) winnerTeamId = currentMatch.homeTeam;
+      else if (nextAwayScore > nextHomeScore) {
+        winnerTeamId = currentMatch.awayTeam;
+      }
+      else if (
+        currentMatch.winnerTeamId === currentMatch.homeTeam ||
+        currentMatch.winnerTeamId === currentMatch.awayTeam
+      ) {
+        winnerTeamId = currentMatch.winnerTeamId;
+      }
+    }
+
+    setKnockoutPredictions((prev) => ({
+      ...prev,
+      [matchId]: {
+        matchId,
+        round: currentMatch.round,
+        homeTeam: currentMatch.homeTeam,
+        awayTeam: currentMatch.awayTeam,
+        homeScore: nextHomeScore,
+        awayScore: nextAwayScore,
+        winnerTeamId,
+      },
+    }));
+  }
+
+  function setKnockoutWinner(matchId: string, winnerTeamId: string) {
+    if (closed) {
+      setMsg("Tu porra ya fue enviada y no se puede modificar.");
+      return;
+    }
+
+    const currentMatch = persistedKnockoutPredictions[matchId];
+    if (!currentMatch?.homeTeam || !currentMatch.awayTeam) return;
+    if (
+      winnerTeamId !== currentMatch.homeTeam &&
+      winnerTeamId !== currentMatch.awayTeam
+    ) {
+      winnerTeamId = "";
+    }
+
+    setKnockoutPredictions((prev) => ({
+      ...prev,
+      [matchId]: {
+        matchId,
+        round: currentMatch.round,
+        homeTeam: currentMatch.homeTeam,
+        awayTeam: currentMatch.awayTeam,
+        homeScore: currentMatch.homeScore,
+        awayScore: currentMatch.awayScore,
+        winnerTeamId: winnerTeamId || null,
+      },
+    }));
+  }
+
+  function validateCompletePrediction(): string | null {
+    if (!isGroupStageComplete(groupPredictions)) {
+      return "Faltan resultados en fase de grupos";
+    }
+
+    for (const round of KNOCKOUT_ROUNDS) {
+      for (const match of knockoutBracket[round.id]) {
+        if (!match.homeTeam || !match.awayTeam) {
+          return `Faltan clasificados en ${VALIDATION_ROUND_LABELS[round.id]}`;
+        }
+        if (match.homeScore === null || match.awayScore === null) {
+          return `Faltan resultados en ${VALIDATION_ROUND_LABELS[round.id]}`;
+        }
+        if (
+          match.homeScore === match.awayScore &&
+          !match.winnerTeamId
+        ) {
+          return `Selecciona el clasificado del partido empatado en ${VALIDATION_ROUND_LABELS[round.id]}`;
+        }
+        if (!match.winnerTeamId) {
+          return `Faltan clasificados en ${VALIDATION_ROUND_LABELS[round.id]}`;
+        }
+      }
+    }
+
+    if (!champion) {
+      return "La final debe tener campeón";
+    }
+
+    return null;
+  }
+
   async function handleSaveDraft() {
     if (!currentUser) {
       setMsg("Debes iniciar sesión para guardar tu porra.");
@@ -494,11 +699,12 @@ export default function PorraPage() {
         displayName: currentUser.displayName,
         payload: {
           groupPredictions,
-          knockoutPredictions: null,
-          champion: null,
+          knockoutPredictions: persistedKnockoutPredictions,
+          champion,
           calculatedSnapshot: {
             standings,
             roundOf32,
+            knockoutBracket,
           },
         },
       });
@@ -526,8 +732,9 @@ export default function PorraPage() {
       return;
     }
 
-    if (!isGroupStageComplete(groupPredictions)) {
-      setMsg("Completa todos los resultados antes de enviar tu porra.");
+    const validationError = validateCompletePrediction();
+    if (validationError) {
+      setMsg(validationError);
       return;
     }
     setSubmitting(true);
@@ -539,11 +746,14 @@ export default function PorraPage() {
         displayName: currentUser.displayName,
         payload: {
           groupPredictions,
-          knockoutPredictions: null,
-          champion: null,
+          knockoutPredictions: persistedKnockoutPredictions,
+          champion,
           calculatedSnapshot: {
             standings,
             roundOf32,
+            knockoutBracket,
+            scoringKnockoutPredictions:
+              toScoringKnockoutPredictions(knockoutBracket),
           },
         },
       });
@@ -653,58 +863,19 @@ export default function PorraPage() {
           </section>
         )}
 
-        {activeStage === "round32" && (
-          <section className="wc-card mt-8 p-4 sm:p-6" role="tabpanel">
-            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-bold sm:text-2xl">
-                  Dieciseisavos · 1/16
-                </h2>
-                <p className="mt-1 text-sm text-wc-muted">
-                  Primer cuadro generado desde la clasificación de grupos
-                  actual. La edición de cruces avanzados queda preparada para
-                  una siguiente iteración.
-                </p>
-              </div>
-              <span className="wc-badge">R32</span>
-            </div>
-            {!groupStageComplete && (
-              <p className="mb-4 rounded-xl border border-wc-gold/40 bg-wc-gold/10 px-4 py-3 text-sm text-wc-gold">
-                Pendiente de completar fase anterior: rellena todos los
-                resultados de grupos para consolidar estos cruces.
-              </p>
-            )}
-            <KnockoutBracket leftPath={leftPath} rightPath={rightPath} />
-          </section>
-        )}
-
-        {activeStage === "round16" && (
-          <StagePlaceholder
-            title="Octavos · 1/8"
-            badge="R16"
-            completePreviousStage={groupStageComplete}
-          />
-        )}
-        {activeStage === "quarterFinals" && (
-          <StagePlaceholder
-            title="Cuartos · 1/4"
-            badge="Cuartos"
-            completePreviousStage={groupStageComplete}
-          />
-        )}
-        {activeStage === "semiFinals" && (
-          <StagePlaceholder
-            title="Semifinales · 1/2"
-            badge="Semifinales"
-            completePreviousStage={groupStageComplete}
-          />
-        )}
-        {activeStage === "final" && (
-          <StagePlaceholder
-            title="Final y campeón"
-            badge="Campeón"
-            completePreviousStage={groupStageComplete}
-          />
+        {KNOCKOUT_ROUNDS.map((round) =>
+          activeStage === round.id ? (
+            <KnockoutRoundSection
+              key={round.id}
+              round={round.id}
+              matches={knockoutBracket[round.id]}
+              groupStageComplete={groupStageComplete}
+              champion={champion}
+              closed={closed}
+              onSetScore={setKnockoutScore}
+              onSetWinner={setKnockoutWinner}
+            />
+          ) : null,
         )}
 
         <section className="wc-card mt-8 p-4 sm:p-6">

@@ -36,8 +36,7 @@ export interface KnockoutPrediction {
   awayTeam: string;     // equipo visitante predicho
   homeScore: number;    // resultado tras prórroga (sin penaltis)
   awayScore: number;
-  // El "ganador" del cruce se infiere por mayor score; en empate (no debería
-  // haber en eliminatorias) se considera el local.
+  winnerTeamId?: string; // clasificado; obligatorio cuando el marcador queda empatado.
 }
 
 export interface Prediction {
