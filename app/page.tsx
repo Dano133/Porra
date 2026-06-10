@@ -29,7 +29,7 @@ export default function HomePage() {
               Empezar mi porra
             </Link>
             <Link href="/ranking" className="wc-btn-gold w-full sm:w-auto">
-              Ver clasificación
+              Ver clasificacion
             </Link>
           </div>
         </section>
