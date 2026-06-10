@@ -33,6 +33,7 @@ export default function AdminPredicciones() {
               <th className="p-2">Participante</th>
               <th>Estado</th>
               <th>Campeón</th>
+              <th>Pichichi</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -43,11 +44,12 @@ export default function AdminPredicciones() {
                 <td>{p.status}</td>
                 <td>
                   <TeamLabel
-                    team={p.championPrediction}
+                    team={p.championPrediction || p.champion}
                     fallbackLabel="—"
                     size="sm"
                   />
                 </td>
+                <td>{p.pichichiPrediction || p.pichichi || "—"}</td>
                 <td>
                   {p.status !== "cancelled" && (
                     <button

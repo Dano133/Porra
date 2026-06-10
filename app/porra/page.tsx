@@ -6,6 +6,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TeamLabel from "@/components/TeamLabel";
 import { MICROCOPY } from "@/lib/microcopy";
+import { loginWithGoogle } from "@/lib/firebase/auth";
+import { WORLD_CUP_2026_PLAYER_GROUPS } from "@/lib/worldCupPlayers";
 import {
   WORLD_CUP_2026_SOURCE_OF_TRUTH,
   type GroupKey,
@@ -388,14 +390,17 @@ function KnockoutRoundSection({
   matches,
   groupStageComplete,
   champion,
+  pichichi,
   closed,
   onSetScore,
   onSetWinner,
+  onSetPichichi,
 }: {
   round: KnockoutRoundId;
   matches: KnockoutMatchView[];
   groupStageComplete: boolean;
   champion: string | null;
+  pichichi: string;
   closed: boolean;
   onSetScore: (
     matchId: string,
@@ -440,13 +445,45 @@ function KnockoutRoundSection({
       </div>
 
       {isFinal && (
-        <div className="mt-5 rounded-2xl border border-wc-gold/60 bg-wc-gold/10 p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-wc-gold">
-            Campeón
-          </p>
-          <div className="mt-2 text-lg font-bold">
-            <TeamLabel team={champion} fallbackLabel="Aún sin definir" />
+        <div className="mt-5 space-y-4 rounded-2xl border border-wc-gold/60 bg-wc-gold/10 p-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-wc-gold">
+              Campeón
+            </p>
+            <div className="mt-2 text-lg font-bold">
+              <TeamLabel team={champion} fallbackLabel="Aún sin definir" />
+            </div>
           </div>
+
+          <label className="block border-t border-wc-gold/30 pt-4">
+            <span className="text-xs uppercase tracking-[0.2em] text-wc-gold">
+              Pichichi del Mundial
+            </span>
+            <span className="mt-1 block text-sm text-wc-muted">
+              Elige quién crees que será el máximo goleador del torneo
+            </span>
+            <select
+              className="wc-select mt-3"
+              value={pichichi}
+              onChange={(event) => onSetPichichi(event.target.value)}
+              disabled={closed}
+            >
+              <option value="">Selecciona un jugador</option>
+              {WORLD_CUP_2026_PLAYER_GROUPS.map((group) => (
+                <optgroup key={group.country} label={group.country}>
+                  {group.players.map((player) => (
+                    <option key={player.id} value={player.name}>
+                      {player.name} · {player.country}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <span className="mt-2 block text-xs text-wc-muted">
+              Lista provisional editable hasta que se publiquen las
+              convocatorias oficiales.
+            </span>
+          </label>
         </div>
       )}
     </section>
@@ -467,6 +504,8 @@ export default function PorraPage() {
   const [submitted, setSubmitted] = useState(false);
   const [predictionStatus, setPredictionStatus] =
     useState<PredictionStatus | null>(null);
+  const [pichichi, setPichichi] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<StageId>("groups");
   const closed =
@@ -483,6 +522,7 @@ export default function PorraPage() {
         setPredictionStatus(null);
         setGroupPredictions({});
         setKnockoutPredictions({});
+        setPichichi("");
         setMsg("Inicia sesión para guardar y enviar tu porra.");
         return;
       }
@@ -506,6 +546,7 @@ export default function PorraPage() {
         } else {
           setKnockoutPredictions({});
         }
+        setPichichi(data?.pichichi ?? "");
         if (data?.status) {
           setPredictionStatus(data.status);
           setSubmitted(data.status === "submitted");
@@ -572,7 +613,6 @@ export default function PorraPage() {
     }));
   }
 
-
   function setKnockoutScore(
     matchId: string,
     side: "homeScore" | "awayScore",
@@ -595,8 +635,7 @@ export default function PorraPage() {
       if (nextHomeScore > nextAwayScore) winnerTeamId = currentMatch.homeTeam;
       else if (nextAwayScore > nextHomeScore) {
         winnerTeamId = currentMatch.awayTeam;
-      }
-      else if (
+      } else if (
         currentMatch.winnerTeamId === currentMatch.homeTeam ||
         currentMatch.winnerTeamId === currentMatch.awayTeam
       ) {
@@ -660,10 +699,7 @@ export default function PorraPage() {
         if (match.homeScore === null || match.awayScore === null) {
           return `Faltan resultados en ${VALIDATION_ROUND_LABELS[round.id]}`;
         }
-        if (
-          match.homeScore === match.awayScore &&
-          !match.winnerTeamId
-        ) {
+        if (match.homeScore === match.awayScore && !match.winnerTeamId) {
           return `Selecciona el clasificado del partido empatado en ${VALIDATION_ROUND_LABELS[round.id]}`;
         }
         if (!match.winnerTeamId) {
@@ -676,7 +712,29 @@ export default function PorraPage() {
       return "La final debe tener campeón";
     }
 
+    if (!pichichi) {
+      return "Selecciona el Pichichi del Mundial";
+    }
+
     return null;
+  }
+
+  async function handleGoogleLogin() {
+    setGoogleLoading(true);
+    setMsg(null);
+    try {
+      await loginWithGoogle();
+      setMsg("Sesión iniciada con Google. Ya puedes guardar tu porra.");
+    } catch (error) {
+      console.error("Error signing in with Google", error);
+      setMsg(
+        error instanceof Error
+          ? error.message
+          : "Error iniciando sesión con Google.",
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   async function handleSaveDraft() {
@@ -701,10 +759,12 @@ export default function PorraPage() {
           groupPredictions,
           knockoutPredictions: persistedKnockoutPredictions,
           champion,
+          pichichi: pichichi || null,
           calculatedSnapshot: {
             standings,
             roundOf32,
             knockoutBracket,
+            pichichi: pichichi || null,
           },
         },
       });
@@ -748,6 +808,7 @@ export default function PorraPage() {
           groupPredictions,
           knockoutPredictions: persistedKnockoutPredictions,
           champion,
+          pichichi: pichichi || null,
           calculatedSnapshot: {
             standings,
             roundOf32,
@@ -784,22 +845,37 @@ export default function PorraPage() {
             <p className="text-sm text-wc-muted">Comprobando sesión...</p>
           )}
           {authResolved && !currentUser && (
-            <div className="space-y-3">
-              <p className="text-wc-accentSoft">
-                Debes iniciar sesión para guardar tu porra.
-              </p>
+            <div className="space-y-4">
+              <div>
+                <p className="font-semibold text-wc-accentSoft">
+                  Debes iniciar sesión para guardar tu porra.
+                </p>
+                <p className="mt-1 text-sm text-wc-muted">
+                  La opción más rápida es continuar con Google en un clic.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={googleLoading}
+                className="wc-btn-primary w-full sm:w-auto"
+              >
+                {googleLoading
+                  ? "Conectando con Google..."
+                  : "Continuar con Google"}
+              </button>
               <div className="flex flex-wrap gap-3 text-sm">
                 <Link
                   href="/login"
                   className="font-semibold text-wc-primary underline-offset-4 hover:underline"
                 >
-                  Iniciar sesión
+                  Iniciar sesión con email
                 </Link>
                 <Link
                   href="/registro"
                   className="font-semibold text-wc-secondary underline-offset-4 hover:underline"
                 >
-                  Crear cuenta
+                  Crear cuenta con email
                 </Link>
               </div>
             </div>
@@ -874,6 +950,8 @@ export default function PorraPage() {
               closed={closed}
               onSetScore={setKnockoutScore}
               onSetWinner={setKnockoutWinner}
+              pichichi={pichichi}
+              onSetPichichi={setPichichi}
             />
           ) : null,
         )}

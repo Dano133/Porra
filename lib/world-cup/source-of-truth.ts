@@ -182,6 +182,7 @@ export const WORLD_CUP_2026_SOURCE_OF_TRUTH = {
         exactBracketAndExactResultBonus: 100,
       },
       champion: 300,
+      pichichi: 300,
       matchResultCountsUntilExtraTime: true,
       penaltyShootoutIgnored: true,
       bracketOrderMatters: true,

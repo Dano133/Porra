@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/client';
-import type { GroupPredictionsMap } from '@/lib/world-cup/standings';
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
+import type { GroupPredictionsMap } from "@/lib/world-cup/standings";
 
-export type PredictionStatus = 'draft' | 'submitted' | 'locked';
+export type PredictionStatus = "draft" | "submitted" | "locked";
 
 type PredictionPayload = {
   groupPredictions: GroupPredictionsMap;
   knockoutPredictions?: unknown | null;
   champion?: string | null;
+  pichichi?: string | null;
   calculatedSnapshot?: unknown | null;
 };
 
@@ -24,11 +25,12 @@ export type UserPredictionDocument = {
   userId: string;
   email: string | null;
   displayName: string | null;
-  tournamentId: 'world-cup-2026';
+  tournamentId: "world-cup-2026";
   status: PredictionStatus;
   groupPredictions: GroupPredictionsMap;
   knockoutPredictions: unknown | null;
   champion: string | null;
+  pichichi?: string | null;
   calculatedSnapshot: unknown | null;
   version: 1;
   createdAt: unknown;
@@ -38,17 +40,27 @@ export type UserPredictionDocument = {
 };
 
 export async function getUserPrediction(uid: string) {
-  const snap = await getDoc(doc(db, 'predictions', uid));
+  const snap = await getDoc(doc(db, "predictions", uid));
   return snap.exists() ? (snap.data() as UserPredictionDocument) : null;
 }
 
-export async function saveUserPredictionDraft({ uid, email, displayName, payload }: SaveArgs) {
-  const predictionRef = doc(db, 'predictions', uid);
+export async function saveUserPredictionDraft({
+  uid,
+  email,
+  displayName,
+  payload,
+}: SaveArgs) {
+  const predictionRef = doc(db, "predictions", uid);
   const existingPrediction = await getDoc(predictionRef);
-  const existingData = existingPrediction.exists() ? (existingPrediction.data() as UserPredictionDocument) : null;
+  const existingData = existingPrediction.exists()
+    ? (existingPrediction.data() as UserPredictionDocument)
+    : null;
 
-  if (existingData?.status === 'submitted' || existingData?.status === 'locked') {
-    throw new Error('Esta porra ya fue enviada y no se puede modificar.');
+  if (
+    existingData?.status === "submitted" ||
+    existingData?.status === "locked"
+  ) {
+    throw new Error("Esta porra ya fue enviada y no se puede modificar.");
   }
 
   await setDoc(
@@ -57,11 +69,12 @@ export async function saveUserPredictionDraft({ uid, email, displayName, payload
       userId: uid,
       email,
       displayName,
-      tournamentId: 'world-cup-2026',
-      status: 'draft',
+      tournamentId: "world-cup-2026",
+      status: "draft",
       groupPredictions: payload.groupPredictions,
       knockoutPredictions: payload.knockoutPredictions ?? null,
       champion: payload.champion ?? null,
+      pichichi: payload.pichichi ?? null,
       calculatedSnapshot: payload.calculatedSnapshot ?? null,
       version: 1,
       createdAt: existingData?.createdAt ?? serverTimestamp(),
@@ -69,17 +82,27 @@ export async function saveUserPredictionDraft({ uid, email, displayName, payload
       submittedAt: null,
       lockedAt: null,
     },
-    { merge: true }
+    { merge: true },
   );
 }
 
-export async function submitUserPrediction({ uid, email, displayName, payload }: SaveArgs) {
-  const predictionRef = doc(db, 'predictions', uid);
+export async function submitUserPrediction({
+  uid,
+  email,
+  displayName,
+  payload,
+}: SaveArgs) {
+  const predictionRef = doc(db, "predictions", uid);
   const existingPrediction = await getDoc(predictionRef);
-  const existingData = existingPrediction.exists() ? (existingPrediction.data() as UserPredictionDocument) : null;
+  const existingData = existingPrediction.exists()
+    ? (existingPrediction.data() as UserPredictionDocument)
+    : null;
 
-  if (existingData?.status === 'submitted' || existingData?.status === 'locked') {
-    throw new Error('Esta porra ya fue enviada y no se puede volver a enviar.');
+  if (
+    existingData?.status === "submitted" ||
+    existingData?.status === "locked"
+  ) {
+    throw new Error("Esta porra ya fue enviada y no se puede volver a enviar.");
   }
 
   await setDoc(
@@ -88,11 +111,12 @@ export async function submitUserPrediction({ uid, email, displayName, payload }:
       userId: uid,
       email,
       displayName,
-      tournamentId: 'world-cup-2026',
-      status: 'submitted',
+      tournamentId: "world-cup-2026",
+      status: "submitted",
       groupPredictions: payload.groupPredictions,
       knockoutPredictions: payload.knockoutPredictions ?? null,
       champion: payload.champion ?? null,
+      pichichi: payload.pichichi ?? null,
       calculatedSnapshot: payload.calculatedSnapshot ?? null,
       version: 1,
       createdAt: existingData?.createdAt ?? serverTimestamp(),
@@ -100,6 +124,6 @@ export async function submitUserPrediction({ uid, email, displayName, payload }:
       submittedAt: serverTimestamp(),
       lockedAt: null,
     },
-    { merge: true }
+    { merge: true },
   );
 }
