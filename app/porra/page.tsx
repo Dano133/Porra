@@ -28,6 +28,12 @@ import {
   type KnockoutPredictionsMap,
   type KnockoutRoundId,
 } from "@/lib/world-cup/knockout";
+import {
+  validatePredictionIntegrity,
+  validateRoundOf32,
+  validateScoringKnockoutPredictions,
+  validateTournamentStaticData,
+} from "@/lib/world-cup/validation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
 import {
@@ -570,18 +576,34 @@ export default function PorraPage() {
     });
   }, []);
 
+  const staticDataValidation = useMemo(() => validateTournamentStaticData(), []);
   const standings = useMemo(
     () => calculateAllGroupStandings(groupPredictions),
     [groupPredictions],
   );
   const roundOf32 = useMemo(() => resolveRoundOf32(standings), [standings]);
+  const roundOf32Validation = useMemo(
+    () => validateRoundOf32(roundOf32),
+    [roundOf32],
+  );
+  const blockingDataErrors = useMemo(
+    () => [
+      ...staticDataValidation.errors,
+      ...roundOf32Validation.errors,
+    ],
+    [staticDataValidation.errors, roundOf32Validation.errors],
+  );
+  const hasBlockingDataError = blockingDataErrors.length > 0;
   const groupStageComplete = useMemo(
     () => isGroupStageComplete(groupPredictions),
     [groupPredictions],
   );
   const knockoutBracket = useMemo(
-    () => buildKnockoutBracket(roundOf32, knockoutPredictions),
-    [roundOf32, knockoutPredictions],
+    () =>
+      hasBlockingDataError
+        ? buildKnockoutBracket([], {})
+        : buildKnockoutBracket(roundOf32, knockoutPredictions),
+    [hasBlockingDataError, roundOf32, knockoutPredictions],
   );
   const champion = useMemo(
     () => getChampion(knockoutBracket),
@@ -591,6 +613,12 @@ export default function PorraPage() {
     () => flattenKnockoutBracket(knockoutBracket),
     [knockoutBracket],
   );
+
+  useEffect(() => {
+    if (hasBlockingDataError) {
+      console.error("Error de integridad de datos del Mundial 2026", blockingDataErrors);
+    }
+  }, [blockingDataErrors, hasBlockingDataError]);
 
   function setScore(
     matchId: string,
@@ -686,7 +714,23 @@ export default function PorraPage() {
     }));
   }
 
+  function getIntegrityValidationError(): string | null {
+    const validation = validatePredictionIntegrity({
+      standings,
+      roundOf32,
+      bracket: knockoutBracket,
+      pichichi: pichichi || null,
+    });
+
+    if (validation.valid) return null;
+    console.error("Predicción bloqueada por integridad inválida", validation.errors);
+    return validation.errors[0] ?? "La porra contiene datos duplicados o inválidos.";
+  }
+
   function validateCompletePrediction(): string | null {
+    const integrityError = getIntegrityValidationError();
+    if (integrityError) return integrityError;
+
     if (!isGroupStageComplete(groupPredictions)) {
       return "Faltan resultados en fase de grupos";
     }
@@ -748,6 +792,12 @@ export default function PorraPage() {
       return;
     }
 
+    const integrityError = getIntegrityValidationError();
+    if (integrityError) {
+      setMsg(integrityError);
+      return;
+    }
+
     setSaving(true);
     setMsg(null);
     try {
@@ -797,6 +847,16 @@ export default function PorraPage() {
       setMsg(validationError);
       return;
     }
+    const scoringKnockoutPredictions = toScoringKnockoutPredictions(knockoutBracket);
+    const scoringValidation = validateScoringKnockoutPredictions(
+      Object.values(persistedKnockoutPredictions),
+    );
+    if (!scoringValidation.valid) {
+      console.error("Predicciones knockout inválidas para scoring", scoringValidation.errors);
+      setMsg(scoringValidation.errors[0] ?? "Hay duplicados en eliminatorias.");
+      return;
+    }
+
     setSubmitting(true);
     setMsg(null);
     try {
@@ -813,8 +873,7 @@ export default function PorraPage() {
             standings,
             roundOf32,
             knockoutBracket,
-            scoringKnockoutPredictions:
-              toScoringKnockoutPredictions(knockoutBracket),
+            scoringKnockoutPredictions,
           },
         },
       });
@@ -904,6 +963,19 @@ export default function PorraPage() {
             <p className="text-sm text-wc-muted">Cargando porra guardada...</p>
           )}
         </div>
+
+        {hasBlockingDataError && (
+          <div className="mt-6 rounded-2xl border border-wc-accent/60 bg-wc-accent/10 p-4 text-sm text-wc-accentSoft">
+            <p className="font-semibold">
+              No se puede construir la porra: hay datos duplicados o inválidos.
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {blockingDataErrors.map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <StageSelector activeStage={activeStage} onChange={setActiveStage} />
 

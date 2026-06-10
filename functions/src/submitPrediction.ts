@@ -31,6 +31,32 @@ const Schema = z.object({
   knockoutPredictions: z.array(KoPredSchema).default([]),
   championPrediction: z.string().max(60).optional().default(""),
   pichichiPrediction: z.string().max(80).optional().default(""),
+}).superRefine((data, ctx) => {
+  const bracketIds = new Set<string>();
+  const teamsByStage = new Map<string, Set<string>>();
+
+  data.knockoutPredictions.forEach((prediction, index) => {
+    if (bracketIds.has(prediction.bracketId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["knockoutPredictions", index, "bracketId"],
+        message: `Cruce de eliminatoria duplicado: ${prediction.bracketId}`,
+      });
+    }
+    bracketIds.add(prediction.bracketId);
+
+    const teams = teamsByStage.get(prediction.stage) ?? new Set<string>();
+    if (teams.has(prediction.homeTeam) || teams.has(prediction.awayTeam)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["knockoutPredictions", index],
+        message: `Equipo duplicado en eliminatoria ${prediction.stage}: ${prediction.homeTeam} vs ${prediction.awayTeam}`,
+      });
+    }
+    teams.add(prediction.homeTeam);
+    teams.add(prediction.awayTeam);
+    teamsByStage.set(prediction.stage, teams);
+  });
 });
 
 export const submitPrediction = onRequest({ cors: true }, async (req, res) => {

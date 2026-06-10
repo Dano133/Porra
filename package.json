@@ -14,7 +14,8 @@
     "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes",
     "seed": "tsx scripts/seed.ts",
     "create-admin": "tsx scripts/create-admin.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:data": "node scripts/check-world-cup-data.mjs"
   },
   "dependencies": {
     "next": "14.2.5",
