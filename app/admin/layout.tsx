@@ -2,7 +2,9 @@
 import { useEffect, useState } from "react";
 import {
   onAuthStateChanged,
+  GoogleAuthProvider,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   type User,
 } from "firebase/auth";
@@ -20,6 +22,7 @@ export default function AdminLayout({
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,6 +36,20 @@ export default function AdminLayout({
       setReady(true);
     });
   }, []);
+
+  async function loginWithGoogle() {
+    setGoogleLoading(true);
+    setErr(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      await signInWithPopup(getFirebaseAuth(), provider);
+    } catch (e: any) {
+      setErr(e?.message ?? "No se pudo iniciar sesión con Google.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
 
   async function login(e: React.FormEvent) {
     e.preventDefault();
@@ -55,31 +72,45 @@ export default function AdminLayout({
             Tu cuenta no tiene permisos de admin.
           </p>
         )}
-        <form
-          onSubmit={login}
-          className="bg-white p-6 rounded-md shadow-sm space-y-3"
-        >
-          <input
-            type="email"
-            required
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="min-h-11 w-full rounded-md border px-3 py-2 text-base md:text-sm"
-          />
-          <input
-            type="password"
-            required
-            placeholder="Contraseña"
-            value={pass}
-            onChange={(e) => setPass(e.target.value)}
-            className="min-h-11 w-full rounded-md border px-3 py-2 text-base md:text-sm"
-          />
-          <button className="min-h-11 w-full rounded-md bg-wc-primary py-2 text-white">
-            Entrar
+        <div className="bg-white p-6 rounded-md shadow-sm space-y-3">
+          <button
+            type="button"
+            onClick={loginWithGoogle}
+            disabled={googleLoading}
+            className="min-h-11 w-full rounded-md bg-wc-primary py-2 text-white"
+          >
+            {googleLoading
+              ? "Conectando con Google..."
+              : "Continuar con Google"}
           </button>
-          {err && <p className="text-red-700 text-sm">{err}</p>}
-        </form>
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-gray-500">
+            <span className="h-px flex-1 bg-gray-200" />
+            <span>o email</span>
+            <span className="h-px flex-1 bg-gray-200" />
+          </div>
+          <form onSubmit={login} className="space-y-3">
+            <input
+              type="email"
+              required
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="min-h-11 w-full rounded-md border px-3 py-2 text-base md:text-sm"
+            />
+            <input
+              type="password"
+              required
+              placeholder="Contraseña"
+              value={pass}
+              onChange={(e) => setPass(e.target.value)}
+              className="min-h-11 w-full rounded-md border px-3 py-2 text-base md:text-sm"
+            />
+            <button className="min-h-11 w-full rounded-md bg-wc-primary py-2 text-white">
+              Entrar
+            </button>
+            {err && <p className="text-red-700 text-sm">{err}</p>}
+          </form>
+        </div>
       </main>
     );
   }

@@ -31,6 +31,7 @@ export default function AdminRanking() {
               <th>3º/4º</th>
               <th>Final</th>
               <th>Campeón</th>
+              <th>Pichichi</th>
             </tr>
           </thead>
           <tbody>
@@ -46,6 +47,7 @@ export default function AdminRanking() {
                 <td>{s.breakdown.third_place}</td>
                 <td>{s.breakdown.final}</td>
                 <td>{s.breakdown.champion}</td>
+                <td>{s.breakdown.pichichi ?? 0}</td>
               </tr>
             ))}
           </tbody>
