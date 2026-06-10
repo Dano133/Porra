@@ -1,5 +1,4 @@
 import {
-  countryCodeToFlag,
   getTeamIdentity,
   type TeamIdentity,
 } from "@/lib/world-cup/team-identity";
@@ -25,7 +24,7 @@ function FlagFallback({ name }: { name: string }) {
     .join("")
     .toUpperCase();
   return (
-    <span className="text-[10px] font-bold tracking-wide text-wc-muted">
+    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-wc-border bg-wc-background/95 text-[10px] font-bold tracking-wide text-wc-muted">
       {initials || "—"}
     </span>
   );
@@ -45,7 +44,12 @@ export default function TeamLabel({
   const resolved = identity ?? getTeamIdentity(team ?? name);
   const teamName =
     name ?? resolved?.name ?? fallbackLabel ?? "Pendiente de clasificar";
-  const flag = countryCodeToFlag(countryCode ?? resolved?.countryCode);
+  const normalizedCountryCode = (countryCode ?? resolved?.countryCode)
+    ?.trim()
+    .toLowerCase();
+  const flagSrc = normalizedCountryCode
+    ? `/flags/${normalizedCountryCode}.svg`
+    : null;
   const wrapper =
     align === "right" ? "justify-end text-right" : "justify-start text-left";
   const textSize =
@@ -54,22 +58,23 @@ export default function TeamLabel({
       : size === "lg"
         ? "text-base md:text-lg"
         : "text-sm md:text-base";
-  const badgeSize =
-    size === "sm"
-      ? "h-5 w-5 text-xs"
-      : size === "lg"
-        ? "h-8 w-8 text-base"
-        : "h-6 w-6 text-sm";
+  const flagSize =
+    size === "sm" ? "h-4 w-6" : size === "lg" ? "h-6 w-9" : "h-5 w-7";
 
   return (
     <span
       className={`inline-flex min-w-0 max-w-full items-center gap-2 ${wrapper} ${className}`}
     >
-      <span
-        className={`inline-flex shrink-0 items-center justify-center rounded-full border border-wc-border bg-wc-background/95 ${badgeSize}`}
-      >
-        {flag ?? (showFallback ? <FlagFallback name={teamName} /> : null)}
-      </span>
+      {flagSrc ? (
+        <img
+          src={flagSrc}
+          alt={`Bandera de ${teamName}`}
+          className={`${flagSize} shrink-0 rounded-[3px] border border-wc-border bg-wc-background/95 object-cover shadow-sm`}
+          loading="lazy"
+        />
+      ) : showFallback ? (
+        <FlagFallback name={teamName} />
+      ) : null}
       <span className={`min-w-0 truncate ${textSize}`}>{teamName}</span>
     </span>
   );
