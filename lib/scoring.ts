@@ -135,9 +135,26 @@ export function computeScore(
   const knockoutPredictions = Array.isArray(prediction.knockoutPredictions)
     ? prediction.knockoutPredictions
     : [];
+  const scoredBracketIds = new Set<string>();
+  const teamsByKnockoutStage = new Map<string, Set<string>>();
   for (const kp of knockoutPredictions) {
+    if (scoredBracketIds.has(kp.bracketId)) {
+      console.warn(`Predicción knockout duplicada ignorada en scoring: ${kp.bracketId}`);
+      continue;
+    }
+
+    const stageTeams = teamsByKnockoutStage.get(kp.stage) ?? new Set<string>();
+    if (stageTeams.has(kp.homeTeam) || stageTeams.has(kp.awayTeam)) {
+      console.warn(`Equipo duplicado ignorado en scoring knockout ${kp.stage}: ${kp.homeTeam} vs ${kp.awayTeam}`);
+      continue;
+    }
+
     const m = matchByBracket.get(kp.bracketId);
     if (!m || m.status !== "finished") continue;
+    scoredBracketIds.add(kp.bracketId);
+    stageTeams.add(kp.homeTeam);
+    stageTeams.add(kp.awayTeam);
+    teamsByKnockoutStage.set(kp.stage, stageTeams);
     const pts = knockoutMatchPoints(kp, m);
     breakdown[kp.stage] += pts;
   }
