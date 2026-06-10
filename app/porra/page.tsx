@@ -414,6 +414,7 @@ function KnockoutRoundSection({
     value: string,
   ) => void;
   onSetWinner: (matchId: string, winnerTeamId: string) => void;
+  onSetPichichi: (playerId: string) => void;
 }) {
   const copy = ROUND_COPY[round];
   const isFinal = round === "final";
