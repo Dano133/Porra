@@ -3,17 +3,21 @@ import { useEffect, useState } from "react";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { getDb, getFirebaseAuth } from "@/lib/firebase-client";
 import type { Match } from "@/lib/types";
 import TeamLabel from "@/components/TeamLabel";
+import { WORLD_CUP_2026_PLAYER_GROUPS } from "@/lib/worldCupPlayers";
 
 export default function AdminResultados() {
   const [matches, setMatches] = useState<Match[]>([]);
+  const [realPichichi, setRealPichichi] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
   async function load() {
@@ -21,6 +25,8 @@ export default function AdminResultados() {
       query(collection(getDb(), "matches"), orderBy("kickoffAt", "asc")),
     );
     setMatches(snap.docs.map((d) => d.data() as Match));
+    const resultsSnap = await getDoc(doc(getDb(), "results", "world-cup-2026"));
+    setRealPichichi((resultsSnap.data()?.pichichi as string | undefined) ?? "");
   }
   useEffect(() => {
     load();
@@ -41,6 +47,19 @@ export default function AdminResultados() {
       updatedAt: Date.now(),
     });
     load();
+  }
+
+  async function savePichichi() {
+    await setDoc(
+      doc(getDb(), "results", "world-cup-2026"),
+      {
+        tournamentId: "world-cup-2026",
+        pichichi: realPichichi || null,
+        updatedAt: Date.now(),
+      },
+      { merge: true },
+    );
+    setMsg("Pichichi oficial guardado.");
   }
 
   async function recalc() {
@@ -68,6 +87,33 @@ export default function AdminResultados() {
   return (
     <div className="min-w-0">
       <h1 className="text-2xl font-bold mb-4">Resultados oficiales</h1>
+      <div className="mb-4 rounded-md bg-white p-4 shadow-sm">
+        <label className="block text-sm font-semibold">Pichichi oficial</label>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <select
+            value={realPichichi}
+            onChange={(event) => setRealPichichi(event.target.value)}
+            className="min-h-10 flex-1 rounded border px-3"
+          >
+            <option value="">Pendiente de definir</option>
+            {WORLD_CUP_2026_PLAYER_GROUPS.map((group) => (
+              <optgroup key={group.country} label={group.country}>
+                {group.players.map((player) => (
+                  <option key={player.id} value={player.name}>
+                    {player.name} · {player.country}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <button
+            onClick={savePichichi}
+            className="min-h-11 rounded-md bg-wc-secondary px-4 py-2 text-white"
+          >
+            Guardar pichichi
+          </button>
+        </div>
+      </div>
       <button
         onClick={recalc}
         className="mb-4 min-h-11 rounded-md bg-wc-primary px-4 py-2 text-white"

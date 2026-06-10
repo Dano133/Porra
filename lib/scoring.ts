@@ -15,6 +15,7 @@
  *      3º/4º:      80 por clasificado, +80 si cruce + resultado exacto.
  *      Final:     100 por clasificado, +100 si cruce + resultado exacto.
  *  - Campeón: 300.
+ *  - Pichichi del Mundial: 300.
  *
  * Notas:
  *  - El "resultado" es el del partido tras 90' o prórroga (sin penaltis).
@@ -29,7 +30,7 @@ import type {
   ScoreBreakdown,
   Stage,
   KnockoutPrediction,
-} from './types';
+} from "./types";
 
 const ZERO_BREAKDOWN: ScoreBreakdown = {
   group: 0,
@@ -39,26 +40,36 @@ const ZERO_BREAKDOWN: ScoreBreakdown = {
   third_place: 0,
   final: 0,
   champion: 0,
+  pichichi: 0,
 };
 
-const KO_POINTS: Record<Exclude<Stage, 'group'>, { qualified: number; bracketBonus: number; exactScoreBonus: number }> = {
-  round_of_16:   { qualified: 10,  bracketBonus: 10,  exactScoreBonus: 20 },
-  quarter_final: { qualified: 40,  bracketBonus: 0,   exactScoreBonus: 40 },
-  semi_final:    { qualified: 60,  bracketBonus: 0,   exactScoreBonus: 60 },
-  third_place:   { qualified: 80,  bracketBonus: 0,   exactScoreBonus: 80 },
-  final:         { qualified: 100, bracketBonus: 0,   exactScoreBonus: 100 },
+const KO_POINTS: Record<
+  Exclude<Stage, "group">,
+  { qualified: number; bracketBonus: number; exactScoreBonus: number }
+> = {
+  round_of_16: { qualified: 10, bracketBonus: 10, exactScoreBonus: 20 },
+  quarter_final: { qualified: 40, bracketBonus: 0, exactScoreBonus: 40 },
+  semi_final: { qualified: 60, bracketBonus: 0, exactScoreBonus: 60 },
+  third_place: { qualified: 80, bracketBonus: 0, exactScoreBonus: 80 },
+  final: { qualified: 100, bracketBonus: 0, exactScoreBonus: 100 },
 };
 
-function groupMatchPoints(p: { homeScore: number; awayScore: number }, m: Match): number {
+function groupMatchPoints(
+  p: { homeScore: number; awayScore: number },
+  m: Match,
+): number {
   if (m.officialHomeScore == null || m.officialAwayScore == null) return 0;
   const realDraw = m.officialHomeScore === m.officialAwayScore;
   const predDraw = p.homeScore === p.awayScore;
-  const exact = p.homeScore === m.officialHomeScore && p.awayScore === m.officialAwayScore;
+  const exact =
+    p.homeScore === m.officialHomeScore && p.awayScore === m.officialAwayScore;
 
   if (realDraw && predDraw) return exact ? 20 : 10;
   if (!realDraw && !predDraw) {
-    const realWinner: 'home' | 'away' = m.officialHomeScore > m.officialAwayScore ? 'home' : 'away';
-    const predWinner: 'home' | 'away' = p.homeScore > p.awayScore ? 'home' : 'away';
+    const realWinner: "home" | "away" =
+      m.officialHomeScore > m.officialAwayScore ? "home" : "away";
+    const predWinner: "home" | "away" =
+      p.homeScore > p.awayScore ? "home" : "away";
     if (realWinner === predWinner) return exact ? 15 : 5;
   }
   return 0;
@@ -74,7 +85,8 @@ function knockoutMatchPoints(pred: KnockoutPrediction, m: Match): number {
 
   // 1) Clasificados acertados (los equipos que figuran en el cruce real)
   if (teams.has(pred.homeTeam)) points += cfg.qualified;
-  if (teams.has(pred.awayTeam) && pred.awayTeam !== pred.homeTeam) points += cfg.qualified;
+  if (teams.has(pred.awayTeam) && pred.awayTeam !== pred.homeTeam)
+    points += cfg.qualified;
 
   // 2) Bonus por posición exacta (aplica explícitamente solo en R16 según reglas)
   const exactBracket =
@@ -85,7 +97,8 @@ function knockoutMatchPoints(pred: KnockoutPrediction, m: Match): number {
 
   // 3) Bonus por cruce + resultado exacto
   const exactScore =
-    pred.homeScore === m.officialHomeScore && pred.awayScore === m.officialAwayScore;
+    pred.homeScore === m.officialHomeScore &&
+    pred.awayScore === m.officialAwayScore;
   if (exactBracket && exactScore) {
     points += cfg.exactScoreBonus;
   }
@@ -98,33 +111,57 @@ export interface ScoringResult {
   breakdown: ScoreBreakdown;
 }
 
-export function computeScore(prediction: Prediction, matches: Match[], realChampion: string | null): ScoringResult {
-  const matchById = new Map(matches.map(m => [m.id, m]));
+export function computeScore(
+  prediction: Prediction,
+  matches: Match[],
+  realChampion: string | null,
+  realPichichi: string | null = null,
+): ScoringResult {
+  const matchById = new Map(matches.map((m) => [m.id, m]));
   const matchByBracket = new Map(
-    matches.filter(m => m.bracketId).map(m => [m.bracketId as string, m])
+    matches.filter((m) => m.bracketId).map((m) => [m.bracketId as string, m]),
   );
 
   const breakdown: ScoreBreakdown = { ...ZERO_BREAKDOWN };
 
   // Fase de grupos
-  for (const gp of prediction.groupStagePredictions) {
+  for (const gp of prediction.groupStagePredictions ?? []) {
     const m = matchById.get(gp.matchId);
-    if (!m || m.stage !== 'group' || m.status !== 'finished') continue;
+    if (!m || m.stage !== "group" || m.status !== "finished") continue;
     breakdown.group += groupMatchPoints(gp, m);
   }
 
   // Eliminatorias
-  for (const kp of prediction.knockoutPredictions) {
+  const knockoutPredictions = Array.isArray(prediction.knockoutPredictions)
+    ? prediction.knockoutPredictions
+    : [];
+  for (const kp of knockoutPredictions) {
     const m = matchByBracket.get(kp.bracketId);
-    if (!m || m.status !== 'finished') continue;
+    if (!m || m.status !== "finished") continue;
     const pts = knockoutMatchPoints(kp, m);
     breakdown[kp.stage] += pts;
   }
 
   // Campeón
-  if (realChampion && prediction.championPrediction &&
-      realChampion.toLowerCase() === prediction.championPrediction.toLowerCase()) {
+  const championPrediction =
+    prediction.championPrediction || prediction.champion || "";
+  if (
+    realChampion &&
+    championPrediction &&
+    realChampion.toLowerCase() === championPrediction.toLowerCase()
+  ) {
     breakdown.champion = 300;
+  }
+
+  // Pichichi
+  const pichichiPrediction =
+    prediction.pichichiPrediction || prediction.pichichi || "";
+  if (
+    realPichichi &&
+    pichichiPrediction &&
+    realPichichi.toLowerCase() === pichichiPrediction.toLowerCase()
+  ) {
+    breakdown.pichichi = 300;
   }
 
   const totalPoints =
@@ -134,12 +171,17 @@ export function computeScore(prediction: Prediction, matches: Match[], realChamp
     breakdown.semi_final +
     breakdown.third_place +
     breakdown.final +
-    breakdown.champion;
+    breakdown.champion +
+    breakdown.pichichi;
 
   return { totalPoints, breakdown };
 }
 
-export function buildScore(participantId: string, tournamentId: string, result: ScoringResult): Score {
+export function buildScore(
+  participantId: string,
+  tournamentId: string,
+  result: ScoringResult,
+): Score {
   return {
     id: `${participantId}_${tournamentId}`,
     participantId,

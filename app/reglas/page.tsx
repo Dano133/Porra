@@ -44,11 +44,19 @@ export default function ReglasPage() {
             <li>3º y 4º: 80 + bonus 80</li>
             <li>Final: 100 + bonus 100</li>
           </ul>
-          <h2 className="mt-6 text-xl font-semibold text-wc-gold">Campeón</h2>
-          <p className="text-wc-muted">
-            Acertar el campeón del Mundial suma{" "}
-            <b className="text-wc-gold">300 puntos</b>.
-          </p>
+          <h2 className="mt-6 text-xl font-semibold text-wc-gold">
+            Campeón y pichichi
+          </h2>
+          <ul className="list-disc list-inside text-wc-muted">
+            <li>
+              Acertar el campeón del Mundial suma{" "}
+              <b className="text-wc-gold">300 puntos</b>.
+            </li>
+            <li>
+              Pichichi del Mundial acertado:{" "}
+              <b className="text-wc-gold">300 puntos</b>.
+            </li>
+          </ul>
           <div className="mt-8 rounded-xl border border-wc-gold/60 bg-wc-gold/10 p-4 text-sm text-wc-text">
             <b>Clave de competición:</b> cuentan los 90 minutos y la prórroga.{" "}
             <b>No cuentan los penaltis.</b>
