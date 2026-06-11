@@ -12,6 +12,11 @@ export interface ResolvedRoundOf32Match {
 
 type ThirdRefAssignment = Map<string, string>;
 
+type ThirdRefOccurrence = {
+  key: string;
+  ref: string;
+};
+
 function resolveRankedRef(
   ref: string,
   standings: GroupStandingsMap,
@@ -28,37 +33,50 @@ function resolveRankedRef(
   return null;
 }
 
+function thirdAssignmentKey(slotId: string, side: 'home' | 'away'): string {
+  return `${slotId}:${side}`;
+}
+
 function buildThirdRefAssignments(
   standings: GroupStandingsMap,
 ): ThirdRefAssignment {
-  const thirdRefs = WORLD_CUP_2026_SOURCE_OF_TRUTH.roundOf32Slots.flatMap((slot) =>
-    [slot.home, slot.away].filter((ref) => /^3[A-L]+$/.test(ref)),
+  const thirdRefs: ThirdRefOccurrence[] = WORLD_CUP_2026_SOURCE_OF_TRUTH.roundOf32Slots.flatMap(
+    (slot) => [
+      { key: thirdAssignmentKey(slot.id, 'home'), ref: slot.home },
+      { key: thirdAssignmentKey(slot.id, 'away'), ref: slot.away },
+    ].filter((item) => /^3[A-L]+$/.test(item.ref)),
   );
-  const bestThirds = getBestThirdPlacedTeams(standings, 8);
+  const bestThirds = getBestThirdPlacedTeams(standings);
   const usedTeams = new Set<string>();
   const assignments: ThirdRefAssignment = new Map();
 
   function assign(index: number): boolean {
     if (index >= thirdRefs.length) return true;
 
-    const ref = thirdRefs[index];
-    const eligibleGroups = new Set(ref.slice(1).split(''));
+    const occurrence = thirdRefs[index];
+    const eligibleGroups = new Set(occurrence.ref.slice(1).split(''));
     const candidates = bestThirds.filter(
-      (team) => eligibleGroups.has(team.group) && !usedTeams.has(team.team),
+      (team) => eligibleGroups.has(team.group) && !usedTeams.has(team.teamId),
     );
 
     for (const candidate of candidates) {
-      assignments.set(ref, candidate.team);
-      usedTeams.add(candidate.team);
+      assignments.set(occurrence.key, candidate.teamId);
+      usedTeams.add(candidate.teamId);
       if (assign(index + 1)) return true;
-      usedTeams.delete(candidate.team);
-      assignments.delete(ref);
+      usedTeams.delete(candidate.teamId);
+      assignments.delete(occurrence.key);
     }
 
     return false;
   }
 
-  assign(0);
+  if (!assign(0)) {
+    console.error('No se pudieron asignar terceros únicos a R32', {
+      thirdRefs,
+      bestThirds,
+    });
+  }
+
   return assignments;
 }
 
@@ -66,12 +84,13 @@ function resolveRef(
   ref: string,
   standings: GroupStandingsMap,
   thirdAssignments: ThirdRefAssignment,
+  assignmentKey: string,
 ): string | null {
   const rankedTeam = resolveRankedRef(ref, standings);
   if (rankedTeam) return rankedTeam;
 
   if (/^3[A-L]+$/.test(ref)) {
-    return thirdAssignments.get(ref) ?? null;
+    return thirdAssignments.get(assignmentKey) ?? null;
   }
 
   return null;
@@ -86,7 +105,17 @@ export function resolveRoundOf32(
     id: slot.id,
     homeRef: slot.home,
     awayRef: slot.away,
-    homeTeam: resolveRef(slot.home, standings, thirdAssignments),
-    awayTeam: resolveRef(slot.away, standings, thirdAssignments),
+    homeTeam: resolveRef(
+      slot.home,
+      standings,
+      thirdAssignments,
+      thirdAssignmentKey(slot.id, 'home'),
+    ),
+    awayTeam: resolveRef(
+      slot.away,
+      standings,
+      thirdAssignments,
+      thirdAssignmentKey(slot.id, 'away'),
+    ),
   }));
 }
