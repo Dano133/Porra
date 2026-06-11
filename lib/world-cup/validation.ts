@@ -1,4 +1,5 @@
 import { WORLD_CUP_2026_PLAYERS } from '@/lib/worldCupPlayers';
+import { buildQualifiedTeams, getBestThirdPlacedTeams, getThirdPlacedTeams } from './best-third';
 import type { ResolvedRoundOf32Match } from './bracket-resolver';
 import type { KnockoutBracketView, KnockoutMatchPrediction } from './knockout';
 import type { GroupKey, TournamentGroupMatch } from './source-of-truth';
@@ -18,7 +19,7 @@ function fail(errors: string[]): ValidationResult {
   return { valid: errors.length === 0, errors };
 }
 
-function duplicateValues(values: string[]): string[] {
+export function duplicateValues(values: string[]): string[] {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
 
@@ -119,6 +120,45 @@ export function validateUniqueQualifiedTeams(
   return fail(errors);
 }
 
+
+export function validateBestThirdPlacedTeams(standings: GroupStandingsMap): ValidationResult {
+  const thirds = getThirdPlacedTeams(standings);
+  const bestThirds = getBestThirdPlacedTeams(standings);
+  const errors: string[] = [];
+  const expectedThirds = WORLD_CUP_2026_SOURCE_OF_TRUTH.tournament.groupCount;
+  const expectedBestThirds = WORLD_CUP_2026_SOURCE_OF_TRUTH.tournament.bestThirdsAdvance;
+  const thirdTeamIds = thirds.map((team) => team.teamId);
+  const bestThirdTeamIds = bestThirds.map((team) => team.teamId);
+
+  if (thirds.length !== expectedThirds) {
+    errors.push(`La tabla global de terceros debe tener ${expectedThirds} equipos y tiene ${thirds.length}`);
+  }
+
+  const thirdDuplicates = duplicateValues(thirdTeamIds);
+  if (thirdDuplicates.length > 0) {
+    errors.push(`La tabla global de terceros contiene equipos duplicados: ${thirdDuplicates.join(', ')}`);
+  }
+
+  if (bestThirds.length !== expectedBestThirds) {
+    errors.push(`Deben clasificarse ${expectedBestThirds} mejores terceros y hay ${bestThirds.length}`);
+  }
+
+  const bestThirdDuplicates = duplicateValues(bestThirdTeamIds);
+  if (bestThirdDuplicates.length > 0) {
+    errors.push(`Mejores terceros duplicados: ${bestThirdDuplicates.join(', ')}`);
+  }
+
+  return fail(errors);
+}
+
+export function validateQualifiedTeamsFromStandings(standings: GroupStandingsMap): ValidationResult {
+  const qualified = buildQualifiedTeams(standings);
+  return validateUniqueQualifiedTeams(
+    qualified.map((team) => team.teamId),
+    32,
+  );
+}
+
 export function validateRoundOf32(roundOf32: readonly ResolvedRoundOf32Match[]): ValidationResult {
   return validateUniqueQualifiedTeams(
     roundOf32.flatMap((match) => [match.homeTeam, match.awayTeam]),
@@ -216,6 +256,8 @@ export function validatePredictionIntegrity({
   const validations = [
     validateTournamentStaticData(),
     validateUniqueQualifiedTeams(standingsTeams, 48),
+    validateBestThirdPlacedTeams(standings),
+    validateQualifiedTeamsFromStandings(standings),
     validateRoundOf32(roundOf32),
     validateKnockoutBracket(bracket),
     validatePichichiPlayers(pichichi),
