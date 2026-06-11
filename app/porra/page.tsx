@@ -19,6 +19,11 @@ import {
 } from "@/lib/world-cup/standings";
 import { resolveRoundOf32 } from "@/lib/world-cup/bracket-resolver";
 import {
+  buildQualifiedTeams,
+  getBestThirdPlacedTeams,
+  getThirdPlacedTeams,
+} from "@/lib/world-cup/best-third";
+import {
   buildKnockoutBracket,
   flattenKnockoutBracket,
   getChampion,
@@ -29,7 +34,10 @@ import {
   type KnockoutRoundId,
 } from "@/lib/world-cup/knockout";
 import {
+  validateBestThirdPlacedTeams,
+  validateKnockoutBracket,
   validatePredictionIntegrity,
+  validateQualifiedTeamsFromStandings,
   validateRoundOf32,
   validateScoringKnockoutPredictions,
   validateTournamentStaticData,
@@ -57,6 +65,16 @@ const STAGES = [
 ] as const;
 
 type StageId = (typeof STAGES)[number]["id"];
+
+const STAGE_ORDER = STAGES.map((stage) => stage.id) as StageId[];
+const NEXT_STAGE_LABELS: Partial<Record<StageId, string>> = {
+  groups: "Continuar a dieciseisavos",
+  round32: "Continuar a octavos",
+  round16: "Continuar a cuartos",
+  quarterFinals: "Continuar a semifinales",
+  semiFinals: "Continuar a la final",
+  final: "Finalizar predicción",
+};
 
 function isGroupStageComplete(predictions: GroupPredictionsMap) {
   return WORLD_CUP_2026_SOURCE_OF_TRUTH.groupStageMatches.every((m) => {
@@ -215,9 +233,11 @@ function GroupSection(props: {
 function StageSelector({
   activeStage,
   onChange,
+  canAccessStage,
 }: {
   activeStage: StageId;
   onChange: (stage: StageId) => void;
+  canAccessStage: (stage: StageId) => boolean;
 }) {
   return (
     <section className="wc-card mt-6 overflow-hidden p-3 sm:mt-8 sm:p-4">
@@ -241,6 +261,7 @@ function StageSelector({
       >
         {STAGES.map((stage) => {
           const isActive = stage.id === activeStage;
+          const isDisabled = !canAccessStage(stage.id);
           return (
             <button
               key={stage.id}
@@ -248,11 +269,13 @@ function StageSelector({
               role="tab"
               aria-selected={isActive}
               onClick={() => onChange(stage.id)}
-              className={`group min-h-20 rounded-2xl border px-3 py-3 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-wc-primary/60 sm:px-4 ${
+              disabled={isDisabled}
+              className={`group min-h-20 rounded-2xl border px-3 py-3 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-wc-primary/60 disabled:cursor-not-allowed disabled:opacity-45 sm:px-4 ${
                 isActive
                   ? "border-wc-gold bg-wc-gold/15 shadow-lg shadow-wc-gold/10"
                   : "border-wc-border bg-wc-background/75 hover:border-wc-primary/70 hover:bg-wc-primary/10"
               }`}
+              title={isDisabled ? "Completa la fase anterior para desbloquear" : undefined}
             >
               <span
                 className={`block text-lg font-black ${isActive ? "text-wc-gold" : "text-wc-primary group-hover:text-wc-text"}`}
@@ -414,7 +437,7 @@ function KnockoutRoundSection({
     value: string,
   ) => void;
   onSetWinner: (matchId: string, winnerTeamId: string) => void;
-  onSetPichichi: (playerId: string) => void;
+  onSetPichichi: (pichichi: string) => void;
 }) {
   const copy = ROUND_COPY[round];
   const isFinal = round === "final";
@@ -494,6 +517,42 @@ function KnockoutRoundSection({
         </div>
       )}
     </section>
+  );
+}
+
+function ContinuePhaseButton({
+  activeStage,
+  disabled,
+  message,
+  onContinue,
+}: {
+  activeStage: StageId;
+  disabled: boolean;
+  message: string | null;
+  onContinue: () => void;
+}) {
+  const label = NEXT_STAGE_LABELS[activeStage];
+  if (!label) return null;
+
+  return (
+    <div className="mt-6 rounded-2xl border border-wc-border bg-wc-background/80 p-4 shadow-lg shadow-black/10">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-wc-text">Avance de fase</p>
+          <p className="mt-1 text-sm text-wc-muted">
+            {message ?? "La fase está completa y validada. Puedes continuar."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={disabled}
+          className="wc-btn-primary w-full shrink-0 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        >
+          {label}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -582,29 +641,58 @@ export default function PorraPage() {
     () => calculateAllGroupStandings(groupPredictions),
     [groupPredictions],
   );
-  const roundOf32 = useMemo(() => resolveRoundOf32(standings), [standings]);
-  const roundOf32Validation = useMemo(
-    () => validateRoundOf32(roundOf32),
-    [roundOf32],
-  );
-  const blockingDataErrors = useMemo(
-    () => [
-      ...staticDataValidation.errors,
-      ...roundOf32Validation.errors,
-    ],
-    [staticDataValidation.errors, roundOf32Validation.errors],
-  );
-  const hasBlockingDataError = blockingDataErrors.length > 0;
   const groupStageComplete = useMemo(
     () => isGroupStageComplete(groupPredictions),
     [groupPredictions],
   );
+  const thirdPlacedTeams = useMemo(() => getThirdPlacedTeams(standings), [standings]);
+  const bestThirdPlacedTeams = useMemo(
+    () => getBestThirdPlacedTeams(standings),
+    [standings],
+  );
+  const qualifiedTeams = useMemo(() => buildQualifiedTeams(standings), [standings]);
+  const bestThirdValidation = useMemo(
+    () => validateBestThirdPlacedTeams(standings),
+    [standings],
+  );
+  const qualifiedTeamsValidation = useMemo(
+    () => validateQualifiedTeamsFromStandings(standings),
+    [standings],
+  );
+  const roundOf32 = useMemo(
+    () => (groupStageComplete ? resolveRoundOf32(standings) : []),
+    [groupStageComplete, standings],
+  );
+  const roundOf32Validation = useMemo(
+    () => (groupStageComplete ? validateRoundOf32(roundOf32) : { valid: false, errors: [] }),
+    [groupStageComplete, roundOf32],
+  );
+  const blockingDataErrors = useMemo(
+    () => [
+      ...staticDataValidation.errors,
+      ...(groupStageComplete ? bestThirdValidation.errors : []),
+      ...(groupStageComplete ? qualifiedTeamsValidation.errors : []),
+      ...(groupStageComplete ? roundOf32Validation.errors : []),
+    ],
+    [
+      staticDataValidation.errors,
+      groupStageComplete,
+      bestThirdValidation.errors,
+      qualifiedTeamsValidation.errors,
+      roundOf32Validation.errors,
+    ],
+  );
+  const hasBlockingDataError = blockingDataErrors.length > 0;
   const knockoutBracket = useMemo(
     () =>
-      hasBlockingDataError
+      !groupStageComplete || hasBlockingDataError
         ? buildKnockoutBracket([], {})
         : buildKnockoutBracket(roundOf32, knockoutPredictions),
-    [hasBlockingDataError, roundOf32, knockoutPredictions],
+    [groupStageComplete, hasBlockingDataError, roundOf32, knockoutPredictions],
+  );
+  const bracketValidation = useMemo(
+    () => validateKnockoutBracket(knockoutBracket),
+    [knockoutBracket],
   );
   const champion = useMemo(
     () => getChampion(knockoutBracket),
@@ -616,10 +704,30 @@ export default function PorraPage() {
   );
 
   useEffect(() => {
-    if (hasBlockingDataError) {
-      console.error("Error de integridad de datos del Mundial 2026", blockingDataErrors);
+    if (!groupStageComplete) return;
+
+    console.info("Tabla global de terceros", thirdPlacedTeams);
+    console.info("Mejores 8 terceros seleccionados", bestThirdPlacedTeams);
+    console.info("Lista final de 32 clasificados", qualifiedTeams);
+
+    const duplicateQualified = qualifiedTeams
+      .map((team) => team.teamId)
+      .filter((teamId, index, teamIds) => teamIds.indexOf(teamId) !== index);
+
+    if (duplicateQualified.length > 0 || hasBlockingDataError) {
+      console.error("Duplicados o errores detectados en clasificados", {
+        duplicateQualified: [...new Set(duplicateQualified)],
+        blockingDataErrors,
+      });
     }
-  }, [blockingDataErrors, hasBlockingDataError]);
+  }, [
+    bestThirdPlacedTeams,
+    blockingDataErrors,
+    groupStageComplete,
+    hasBlockingDataError,
+    qualifiedTeams,
+    thirdPlacedTeams,
+  ]);
 
   function setScore(
     matchId: string,
@@ -715,7 +823,117 @@ export default function PorraPage() {
     }));
   }
 
+  function validateKnockoutRoundComplete(round: KnockoutRoundId): string | null {
+    if (!groupStageComplete) {
+      return "Completa la fase de grupos antes de jugar eliminatorias.";
+    }
+
+    if (hasBlockingDataError) {
+      return blockingDataErrors[0] ?? "Hay duplicados o errores en los clasificados.";
+    }
+
+    if (round === "round32" && !bracketValidation.valid) {
+      return bracketValidation.errors[0] ?? "R32 contiene duplicados.";
+    }
+
+    for (const match of knockoutBracket[round]) {
+      if (!match.homeTeam || !match.awayTeam) {
+        return `Faltan clasificados en ${VALIDATION_ROUND_LABELS[round]}.`;
+      }
+      if (match.homeScore === null || match.awayScore === null) {
+        return `Faltan marcadores en ${VALIDATION_ROUND_LABELS[round]}.`;
+      }
+      if (match.homeScore === match.awayScore && !match.winnerTeamId) {
+        return `Selecciona el clasificado por penaltis en todos los empates de ${VALIDATION_ROUND_LABELS[round]}.`;
+      }
+      if (!match.winnerTeamId) {
+        return `Faltan clasificados en ${VALIDATION_ROUND_LABELS[round]}.`;
+      }
+    }
+
+    if (round === "final") {
+      if (!champion) return "La final debe tener campeón definido.";
+      if (!pichichi) return "Selecciona el Pichichi antes de finalizar.";
+    }
+
+    return null;
+  }
+
+  function validateStage(stage: StageId): string | null {
+    if (stage === "groups") {
+      if (!groupStageComplete) return "Faltan marcadores en fase de grupos.";
+      if (hasBlockingDataError) {
+        return blockingDataErrors[0] ?? "La clasificación contiene duplicados o errores.";
+      }
+      if (!bestThirdValidation.valid) return bestThirdValidation.errors[0] ?? "Mejores terceros inválidos.";
+      if (!qualifiedTeamsValidation.valid) {
+        return qualifiedTeamsValidation.errors[0] ?? "La lista de 32 clasificados no es válida.";
+      }
+      if (!roundOf32Validation.valid) return roundOf32Validation.errors[0] ?? "R32 no es válida.";
+      return null;
+    }
+
+    return validateKnockoutRoundComplete(stage);
+  }
+
+  function canAccessStage(stage: StageId): boolean {
+    const stageIndex = STAGE_ORDER.indexOf(stage);
+    if (stageIndex <= 0) return true;
+
+    return STAGE_ORDER.slice(0, stageIndex).every(
+      (previousStage) => validateStage(previousStage) === null,
+    );
+  }
+
+  function handleStageChange(stage: StageId) {
+    if (!canAccessStage(stage)) {
+      const stageIndex = STAGE_ORDER.indexOf(stage);
+      const blockingStage = STAGE_ORDER.slice(0, stageIndex).find(
+        (previousStage) => validateStage(previousStage) !== null,
+      );
+      setMsg(
+        blockingStage
+          ? validateStage(blockingStage)
+          : "Completa la fase anterior para continuar.",
+      );
+      return;
+    }
+
+    setActiveStage(stage);
+    setMsg(null);
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 0);
+  }
+
+  function handleContinueStage() {
+    const validationError = validateStage(activeStage);
+    if (validationError) {
+      setMsg(validationError);
+      return;
+    }
+
+    const currentIndex = STAGE_ORDER.indexOf(activeStage);
+    const nextStage = STAGE_ORDER[currentIndex + 1];
+
+    if (!nextStage) {
+      setMsg("La predicción está completa. Puedes guardar o enviar tu porra.");
+      return;
+    }
+
+    setActiveStage(nextStage);
+    setMsg(null);
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 0);
+  }
+
   function getIntegrityValidationError(): string | null {
+    if (!groupStageComplete) {
+      if (staticDataValidation.valid) return null;
+      console.error(
+        "Predicción bloqueada por datos estáticos inválidos",
+        staticDataValidation.errors,
+      );
+      return staticDataValidation.errors[0] ?? "La porra contiene datos duplicados o inválidos.";
+    }
+
     const validation = validatePredictionIntegrity({
       standings,
       roundOf32,
@@ -978,7 +1196,11 @@ export default function PorraPage() {
           </div>
         )}
 
-        <StageSelector activeStage={activeStage} onChange={setActiveStage} />
+        <StageSelector
+          activeStage={activeStage}
+          onChange={handleStageChange}
+          canAccessStage={canAccessStage}
+        />
 
         {activeStage === "groups" && (
           <section className="wc-card mt-8 p-4 sm:p-6" role="tabpanel">
@@ -1009,23 +1231,36 @@ export default function PorraPage() {
                 />
               ))}
             </div>
+            <ContinuePhaseButton
+              activeStage="groups"
+              disabled={validateStage("groups") !== null}
+              message={validateStage("groups")}
+              onContinue={handleContinueStage}
+            />
           </section>
         )}
 
         {KNOCKOUT_ROUNDS.map((round) =>
           activeStage === round.id ? (
-            <KnockoutRoundSection
-              key={round.id}
-              round={round.id}
-              matches={knockoutBracket[round.id]}
-              groupStageComplete={groupStageComplete}
-              champion={champion}
-              closed={closed}
-              onSetScore={setKnockoutScore}
-              onSetWinner={setKnockoutWinner}
-              pichichi={pichichi}
-              onSetPichichi={setPichichi}
-            />
+            <div key={round.id}>
+              <KnockoutRoundSection
+                round={round.id}
+                matches={knockoutBracket[round.id]}
+                groupStageComplete={groupStageComplete}
+                champion={champion}
+                closed={closed}
+                onSetScore={setKnockoutScore}
+                onSetWinner={setKnockoutWinner}
+                pichichi={pichichi}
+                onSetPichichi={setPichichi}
+              />
+              <ContinuePhaseButton
+                activeStage={round.id}
+                disabled={validateStage(round.id) !== null}
+                message={validateStage(round.id)}
+                onContinue={handleContinueStage}
+              />
+            </div>
           ) : null,
         )}
 
