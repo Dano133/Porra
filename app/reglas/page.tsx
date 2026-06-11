@@ -11,7 +11,7 @@ export default function ReglasPage() {
           <h1 className="text-3xl font-bold">Reglas del torneo</h1>
           <p className="mt-2 text-wc-muted">{MICROCOPY.rules}</p>
           <p className="mt-3 text-wc-secondary">
-            "Sin reglamento no hay remontada."
+            «Sin reglamento no hay remontada.»
           </p>
 
           <h2 className="mt-7 text-xl font-semibold text-wc-primary">
